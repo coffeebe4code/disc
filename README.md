@@ -1,11 +1,11 @@
 # About
-The DISC language is a lisp dialect based language. The language itself has many features that most developers are acustomed to in the modern era, as well as several new ones.
+The DISC language is a lisp dialect based language. The language itself has many features that most developers are accustomed to in the modern era, as well as several new ones.
 This project has goals that will ensure success and adoption of the language. The goals are...
 
 - **Tooling is first class**. The language server, the cli, the parser, everything for a developer to be successful will all be included in decisions and apart of the main project.
 - **Make the fastest interpreted language available**. Tools will be able to output optimal performance suggestions for interpreted scripts. The language is designed around executing scripts as fast as possible.
-- **Provide the best embedded support**. Embedded systems require demanding performance use of their hardware. Supporting embedded systems will force the tooling we make, to be as efficient as possible, thus further helping the second goal.
-- **Documentation is key**. Making documentation a number another high priority, will ensure that any newcomers to the language get the most up to date features,knowledge, and tutorials for easy use.
+- **Provide the best embedded support**. Embedded systems require demanding performance use of their hardware. Supporting embedded systems will force the tooling, to be as efficient as possible. Thus, further helping the second goal.
+- **Documentation is key**. Making documentation another high priority, will ensure that any newcomers to the language get the most up to date features,knowledge, and tutorials for easy use.
 - **Make it easy to use**. The first class tooling, the documentation, and clear goals will make this tool and language easy to use.
 ---
 What does disc stand for?
