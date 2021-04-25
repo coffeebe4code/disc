@@ -17,7 +17,7 @@ What does disc stand for?
 
 You read that correctly. The interpreter and compiler for disc can give you options to control the four pillars of static, dynamic, weak, and strong typing.
 
-Binaries are not cross-platform, Scripts are cross-platform. Many developers work on different systems, and the tools output a binary that is specific to x86-64, riscv32, arm32, the list goes on.
+Binaries are not cross-platform, Scripts are cross-platform. Developers with disc will be able to choose to create minified scripts that can be ran on any machine, compiled binaries, or both. Many developers work on different systems, and the tools output a binary that is specific to x86-64, riscv32, arm32, the list goes on.
 In the business world for CICD, many developers would work on windows, but then pipelines or servers could be linux based, or if the company is fancy, they might even have their developers be on mac. We need to make the code that is developed, portable. 
 
 There are two factions in the software building community. 
@@ -26,7 +26,7 @@ One side cares strictly about the correctness of the code, and has no issues enf
 
 While the other side, has no problems with implicit casts, doesn't type check and allows you to run code. When working with javascript, I find its lack of typing nice at times when I just want to see the code run, inspect breakboints, variables in memory, etc. 
 
-But, we also can't forgo the safety our programs receive in strongly typed systems. Rust has certainly taken the community by storm. This project will be no acception, there are plans to make the compiler type checking as strong as rusts type system.
+But, we also can't forgo the safety our programs receive in strongly typed systems. Rust has certainly taken the community by storm. This project will be no exception, there are plans to make the compiler type checking as strong as rusts type system.
 #
 
 **Disclaimer**
