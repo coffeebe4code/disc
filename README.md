@@ -114,7 +114,7 @@ discd runner [<scripts>] [<args>]
     --args			the args that will be passed to your scripts entrypoint. Make this the last argument passed to runner
 ```
 
-Now that we can see how to actually run our scripts! With quite a bit more information. let's go ahead and run our new project.
+Now that we can see how to actually run our scripts, let's go ahead and run our new project.
 ```
 $ discr ./src/first-project.di --no-initial
 Hello from first-project!
