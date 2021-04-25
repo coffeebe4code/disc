@@ -176,11 +176,11 @@ This section will not cover the type safety possibilities.
 This is the bear minimum to run a program somewhat like what you expect.
 
 ---
-#### Builtins
+#### Identifiers
 
-In order for parsing of a script to execute faster, there are special characters that can't be used anywhere else. Many of them are reserved for future use, or are used internally to the compiler, parser, or minifier. They are prepended to text. You will see their usage in several sections including [Functions](#functions)
+In order for parsing of a script to execute faster, there are special characters that can't be used anywhere else. Many of them are reserved for future use, or are used internally to the compiler, parser, or minifier. They are prepended to text.
 ```
-@ # $ % & * ; :  , ... . ()
+@ # $ % & * ; :  , ... . () ' "
 ```
 `@` - used for defining/declaring.
 
@@ -190,21 +190,25 @@ In order for parsing of a script to execute faster, there are special characters
 
 `()` - scoping block. A file is an implicit scope block.
 
-`:` - used for keys.
+`:` - used for keys, may also be referred to as properties.
 
-`,` - hook builtin. Used for implementing interfaces.
+`,` - hook identifier. Used for implementing interfaces.
 
-`$ % & * ... .` - are reserved for now.
+`%` - builtin identifier. These are functions that are embedded in the language.
+
+`'` - type indication identifier.
+
+`$ & * ... .` - are reserved for now.
 
 ---
 #### Functions
-You define functions using `f` in conjunction with the `@` builtin:
+You define functions using `f` in conjunction with the `@` identifier:
 ```
 @f is short for `function`
 ```
 ```
 (@f add (x y)
-  (+ x y)) 
+  (%+ x y)) 
 ```
 You can use a function with the name of the function:
 ```
@@ -212,10 +216,44 @@ $ discd repl ./myadd.di
 > (add 33 9)
 42
 ```
+Note: You can read the [Builtin](#builtin) section to understand why `+` was prepended with `%`.
+
+---
+#### Builtin
+
+Some functions are built into the language. Here is a list of all.
+```
+%ffi - used for calling functions local to the Operating System.
+%thread - used for creating and working with threads.
+%proc - reserved.
+%do - used for serially executing functions.
+%if - used for conditionallity executing one of two blocks of code.
+%elif - used for conditionallity executing several blocks of code.
+%while - loops while a condition is true.
+%1while - executes the block of code at least once even if condition is false.
+%loop - executes consuming an implicit iterator.
+%lambda - allows for a function to be projected onto its parameters.  
+%+ - addition.
+%- - subtraction.
+%% - modulo.
+%/ - divide.
+%* - multiplication.
+%< - less than.
+%> - greater than.
+%| - or.
+%& - and.
+%[ - shift left.
+%] - shift right.
+%~ - not.
+%^ - xor.
+%! - falsey. works the same as not on bits, but handles nil for types.
+%= - equality. same
+```
+including builtins allows us to quickly parse these commonly used functions, and do optimizations at the compiler level.
 
 ---
 #### Variables
-You define variables using the builtin `@`:
+You define variables using the identifier `@` along with `l`:
 ```
 @l is short for `let`
 ```
@@ -228,7 +266,7 @@ string examples:
 (@l mystring "this is a string.")
 ```
 
-All of the above are valid ways to declare a string.
+All of the above are valid ways to declare a string. All these examples will live on the heap.
 
 ---
 number examples:
@@ -250,11 +288,14 @@ list examples:
 (%l mylist ("general" 1 2 3))
 ```
 
-All of the above are valide ways to declare a list. Lists do not need to be of the same type
+All of the above are valid ways to declare a list. Lists do not need to be of the same type.
 
 ---
 #### Types
-You can define a type with the builtin for definitions `@` along with t, and give the type properties with `:`
+You can define a type with the identifier for definitions `@` along with `t`, and give the type properties with the identifier  `:`
+```
+@t is short for type
+```
 ```
 (@t computer 
   :mouse ""
@@ -277,26 +318,106 @@ $ discd repl ./computer.di ./add-monitor.di
 
 ---
 #### Interfaces and Generics
-You can define an interface with the builtin for definitions `@` along with i:
+You can define an interface with the identifier for definitions `@` along with `i`:
+```
+@i is short for interface
+```
 ```
 (@i debug-it (o)
-	:debug (o))
+  :debug (o))
 ```
-In order to add an interface to a type, you must use the builtin `,` for hooking in the requirement
+In order to add an interface to a type, you must use the identifier `,` for hooking in the requirement
 ```
 (@t computer (,debug-it)
   :mouse ""
-  :debug "It's a computer")
+  :debug ("It's a computer"))
 ```
-Then, you can make a generic which will take the interface prefaced with the hook `,` builtin.
+Then, you can make a generic which will take the interface prefaced with the hook `,` identifier.
+```
+@g is short for generic
+```
 ```
 (@g print-out (,debug-it)
-	(printf :debug))
+  (printf :debug))
 ```
 And finally, its usage.
 ```
-$ discd repl ./computer.di ./debug.di ./print-out.di
+$ discd repl ./computer.di ./print-out.di
 > (print-out (computer))
 It's a computer
+```
+These are a bit more complex, albeit powerful, so let's go over what is happening.
+
+First,
+we define an interface. When implementing it, you must consume 1 type, the previous example used `(o)`. This indicates it needs to be an expression of any type.
+```
+(@i debug-it o
+  :debug o)
+
+@t computer (,debug-it)
+  :mouse ""
+  :debug "It's a computer")
+```
+The above is saying that in order to implement the `debug-it` interface, you must have a `key` called `:debug`, and it must be a type. All expressions evaluate to a type. So these are both valid syntaxes. Visualizing the substitution I find is most helpful.
+
+```
+(@g print-out (,debug-it)
+  (printf :debug))
+```
+Instead of print-out receiving a string, or a list, we are saying, there will be a key called `:debug` you can just use that. `:debug` will get expanded to "It's a computer".
+
+`printf` is one of the earliest functions in computing history. It is extremely complex internally, and lives on your system in some way or another. On linux or mac, you can enter this into your shell.
+```
+$ printf "hello\n"
+hello
+$
+```
+`printf` can also take in multiple arguments and format the input string with some evaluation.
+```
+$ printf "hello %s\n" "world"
+hello world
+$ 
+```
+So printf can take a list of strings. We can edit `debug-it` interface to represent this.
+```
+(@i debug-it (format input)
+  :debug (format input))
+
+(@g print-out (,debug-it)
+  (printf :debug))
+
+(@t computer (,debug-it)
+  :mouse ""
+  :debug ("mouse key is %s\n" :mouse))
+```
+types are special in that they have access to their `keys` anywhere within the declared `type` scope.
+`printf` is seemingly very robust, and we want to be able to pass in any of the accepted arguments, but you are in the `dynamic` and `weak` tutorial. So we could, just force `printf` to figure out all this for us.
+
+Here is the full look at generics and interfaces in action.
+```
+(@i debug-it o
+  :debug o)
+
+(@g print-out (,debug-it)
+  (printf :debug))
+
+(@t computer (,debug-it)
+  :mouse ""
+  :debug "It's a computer")
+
+(@t car (,debug-it)
+  :make ""
+  :model ""
+  :debug ("car => :make %s and :model %s\n" :make :model))
+```
+and the usage.
+```
+$ discd repl ./full-example.di
+> (print-out computer)
+It's a computer
+> (@l mycar (:make "Ford" :model "RS200"))
+> (print-out mycar)
+car => :make Ford and :model RS200
+>
 ```
 
