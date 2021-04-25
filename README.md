@@ -80,7 +80,7 @@ $ discd project new first-project --cli
                      
 ```
 - `project` is the tool being used.
-- `new` is the feature the tool supports.
+- `new` is the feature the tool supports. A tool can have many features or none.
 - `first-project` is the input that the feature requires.
 - `--cli` is the flag that is passed to the feature in this case, here is where flags passed to the tool would go as well.
 - `discd` as well as the tool:`project` and feature: `new` could be given an `-h` argument to get hints about how to use that tool or feature.
@@ -114,12 +114,12 @@ discd runner [<scripts>] [<args>]
     --args			the args that will be passed to your scripts entrypoint. Make this the last argument passed to runner
 ```
 
-Now that we can see how to actually run our scripts! With quite a bit more information. lets go ahead and run our new project.
+Now that we can see how to actually run our scripts! With quite a bit more information. let's go ahead and run our new project.
 ```
 $ discr ./src/first-project.di --no-initial
 Hello from first-project!
 ```
-Lets now take a look at the project structure that was created.
+Let's now take a look at the project structure that was created.
 ```
 first-project
   |
