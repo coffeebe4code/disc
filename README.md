@@ -204,7 +204,7 @@ You define functions using `f` in conjunction with the `@` builtin:
 ```
 ```
 (@f add (x y)
-  (x + y)) 
+  (+ x y)) 
 ```
 You can use a function with the name of the function:
 ```
