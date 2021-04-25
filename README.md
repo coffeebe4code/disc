@@ -42,7 +42,7 @@ The rest of these sections are just to give the reader an understanding on what 
 - [First Project](#first_project)
 - [Compilation](#compilation)
 - Embedded Project
-- Language Specification
+- [Language Specification (Weak + Dynamic)](#language-specification-weak-%2B-dynamic)
 
 # Prerequisites
 - You have downloaded and installed `discr`.
@@ -167,5 +167,136 @@ Success! parsed html for { google.com, twitch.tv}
 ```
 
 ### Compilation
+::todo::
 
- 
+### Language Specification Weak + Dynamic
+
+**NOTE**
+This section will not cover the type safety possibilities.
+This is the bear minimum to run a program somewhat like what you expect.
+
+---
+#### Builtins
+
+In order for parsing of a script to execute faster, there are special characters that can't be used anywhere else. Many of them are reserved for future use, or are used internally to the compiler, parser, or minifier. They are prepended to text. You will see their usage in several sections including [Functions](#functions)
+```
+@ # $ % & * ; :  , ... . ()
+```
+`@` - used for defining/declaring.
+
+`;` - used for comments, everything up until the next line is immediately ignored. multi-line comments are up to your ide tooling to insert ; on every line to be commented
+
+`#` - used for preprocessor commands.
+
+`()` - scoping block. A file is an implicit scope block.
+
+`:` - used for keys.
+
+`,` - hook builtin. Used for implementing interfaces.
+
+`$ % & * ... .` - are reserved for now.
+
+---
+#### Functions
+You define functions using `f` in conjunction with the `@` builtin:
+```
+@f is short for `function`
+```
+```
+(@f add (x y)
+  (x + y)) 
+```
+You can use a function with the name of the function:
+```
+$ discd repl ./myadd.di
+> (add 33 9)
+42
+```
+
+---
+#### Variables
+You define variables using the builtin `@`:
+```
+@l is short for `let`
+```
+
+---
+string examples:
+``` 
+(@l mystring)
+(@l mystring "")
+(@l mystring "this is a string.")
+```
+
+All of the above are valid ways to declare a string.
+
+---
+number examples:
+```
+(%l mynum)
+(%l mynum 0)
+(%l mynum 0.0)
+```
+
+All of the above are valid ways to declare a number. All numbers by default are 64 bit floating point.
+
+---
+list examples:
+```
+(%l mylist)
+(%l mylist ())
+(%l mylist (1 2 3))
+(%l mylist ("hello" "there"))
+(%l mylist ("general" 1 2 3))
+```
+
+All of the above are valide ways to declare a list. Lists do not need to be of the same type
+
+---
+#### Types
+You can define a type with the builtin for definitions `@` along with t, and give the type properties with `:`
+```
+(@t computer 
+  :mouse ""
+  :keyboard ""
+  :cpu ""
+  :monitors ()
+  :speakers ())
+```
+You can use a type with its name. The type will live on the heap.
+```
+$ discd repl ./computer.di ./add-monitor.di
+> (add-monitor (computer "Generic 720p Monitor"))
+(@t computer
+  :mouse ""
+  :keyboard ""
+  :cpu ""
+  :monitors ("Generic 720p Monitor")
+  :speakers ())
+```
+
+---
+#### Interfaces and Generics
+You can define an interface with the builtin for definitions `@` along with i:
+```
+(@i debug-it (o)
+	:debug (o))
+```
+In order to add an interface to a type, you must use the builtin `,` for hooking in the requirement
+```
+(@t computer (,debug-it)
+  :mouse ""
+  :debug "It's a computer")
+```
+Then, you can make a generic which will take the interface prefaced with the hook `,` builtin.
+```
+(@g print-out (,debug-it)
+	(printf :debug))
+```
+And finally, its usage.
+```
+$ discd repl ./computer.di ./debug.di ./print-out.di
+> (print-out (computer))
+It's a computer
+```
+
