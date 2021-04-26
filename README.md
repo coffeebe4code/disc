@@ -26,7 +26,7 @@ One side cares strictly about the correctness of the code, and has no issues enf
 
 While the other side, has no problems with implicit casts, doesn't type check and allows you to run code. When working with javascript, I find its lack of typing nice at times when I just want to see the code run, inspect breakboints, variables in memory, etc. 
 
-But, we also can't forgo the safety our programs receive in strongly typed systems. Rust has certainly taken the community by storm. This project will be no exception, there are plans to make the compiler type checking as strong as rusts type system.
+But, we also can't forgo the safety our programs receive in strongly typed systems. Rust has certainly taken the community by storm. This project will be no exception, there are plans to make the compiler type checking as strong as rusts type system if the features are turned on.
 #
 
 **Disclaimer**
@@ -49,16 +49,18 @@ The rest of these sections are just to give the reader an understanding on what 
 - You have downloaded and installed `discd`.
 
 ### Tooling Mindset
-The `discr` or "disc runner" is the absolute minimum required cli necessary in order to run scripts. No repl, no validators, nothing. The way your operating system runs programs will explain why this decision was made to separate the runner. First, the OS must load the program into memory, and then it begins executing the `main` method. Anytime you run a script for disc, python, or any cli the first thing the operating system must do, is load the program itself into memory. The larger this binary is, the longer it takes before it can execute any actual code at all! You will find that all decisions were carefully made, and it is recommended to use the tooling provided to its full advantage.
+The `discr` or "disc runner" is the absolute minimum required cli necessary in order to run scripts. No repl, no validators, nothing. The way your operating system runs programs will explain why this decision was made to separate the runner. First, the OS must load the program into memory, and then it begins executing the `main` method. Anytime you run a script for disc, python, or any cli the first thing the operating system must do, is load the program itself into memory. The larger this binary is, the longer it takes before it can execute any actual code at all! 
 
-The `discd` or "disc dev" cli is a full fledged development tool that can manage projects, minify scripts, compile projects, lint projects, provide language server options, and more.
+Making `discr` as small as possible ensures the fastest execution possible.
+
+The `discd` or "disc dev" cli is a full fledged development tool that can manage projects, minify scripts, compile projects, lint projects, provide language server options, and more. It is recommended to use this to run scripts while developing and testing your code.
 
 ### Working with Projects
 Type in a shell.
 ```
 discr -h
 ```
-and you will see a list of help functions. there isn't much.
+and you will see a list of help functions. There isn't much.
 ```
 $ discr -h
 version: 0.0.1-alpha
@@ -180,7 +182,7 @@ This is the bear minimum to run a program somewhat like what you expect.
 
 In order for parsing of a script to execute faster, there are special characters that can't be used anywhere else. Many of them are reserved for future use, or are used internally to the compiler, parser, or minifier. They are prepended to text.
 ```
-@ # $ % & * ; :  , ... . () ' "
+@ # $ % & * ; :  , ... . () ' " ? /
 ```
 `@` - used for defining/declaring.
 
@@ -198,7 +200,7 @@ In order for parsing of a script to execute faster, there are special characters
 
 `'` - type indication identifier.
 
-`$ & * ... .` - are reserved for now.
+`$ & * ... . ? /` - are reserved for now.
 
 ---
 #### Functions
@@ -228,11 +230,12 @@ Some functions are built into the language. Here is a list of all.
 %proc - reserved.
 %do - used for serially executing functions.
 %if - used for conditionallity executing one of two blocks of code.
-%elif - used for conditionallity executing several blocks of code.
+%ifelif - used for conditionallity executing several blocks of code.
 %while - loops while a condition is true.
 %1while - executes the block of code at least once even if condition is false.
 %loop - executes consuming an implicit iterator.
-%lambda - allows for a function to be projected onto its parameters.  
+%lambda - allows for a function to be projected onto its parameters.
+%box - special function which puts the type or function on the heap and returns the boxed object.
 %+ - addition.
 %- - subtraction.
 %% - modulo.
@@ -246,8 +249,8 @@ Some functions are built into the language. Here is a list of all.
 %] - shift right.
 %~ - not.
 %^ - xor.
-%! - falsey. works the same as not on bits, but handles nil for types.
-%= - equality. same
+%! - falsey. works the same as `not` on bits, but handles nil for types.
+%= - equality. same as xor on bits, but handles nil for types.
 ```
 including builtins allows us to quickly parse these commonly used functions, and do optimizations at the compiler level.
 
@@ -304,17 +307,19 @@ You can define a type with the identifier for definitions `@` along with `t`, an
   :monitors ()
   :speakers ())
 ```
-You can use a type with its name. The type will live on the heap.
+You can use a type with its name. The type will live on the stack.
 ```
-$ discd repl ./computer.di ./add-monitor.di
-> (add-monitor (computer "Generic 720p Monitor"))
-(@t computer
+$ discd repl ./computer.di ./debug.di
+> (@l mycomp 'computer)
+> (print-out (add-monitor (mycomp "Generic 720p Monitor")))
+('computer
   :mouse ""
   :keyboard ""
   :cpu ""
   :monitors ("Generic 720p Monitor")
-  :speakers ())
+  :speakers "")
 ```
+In this example the add-monitor function returns the same instance of the computer to the caller `print-out` which pretty prints the type to stdout.
 
 ---
 #### Interfaces and Generics
@@ -332,7 +337,7 @@ In order to add an interface to a type, you must use the identifier `,` for hook
   :mouse ""
   :debug ("It's a computer"))
 ```
-Then, you can make a generic which will take the interface prefaced with the hook `,` identifier.
+Then, you can make a generic function which will take the interface prefaced with the hook `,` identifier.
 ```
 @g is short for generic
 ```
@@ -343,13 +348,14 @@ Then, you can make a generic which will take the interface prefaced with the hoo
 And finally, its usage.
 ```
 $ discd repl ./computer.di ./print-out.di
-> (print-out (computer))
+> (@l mycomp 'computer)
+> (print-out mycomp)
 It's a computer
 ```
 These are a bit more complex, albeit powerful, so let's go over what is happening.
 
 First,
-we define an interface. When implementing it, you must consume 1 type, the previous example used `(o)`. This indicates it needs to be an expression of any type.
+we define an interface. When implementing it, you must consume 1 type, the previous example used `(o)`. This indicates it needs to be an expression of any type. We can also use just `o` because of how `printf` is a bit special.
 ```
 (@i debug-it o
   :debug o)
@@ -362,9 +368,10 @@ The above is saying that in order to implement the `debug-it` interface, you mus
 
 ```
 (@g print-out (,debug-it)
-  (printf :debug))
+  (printf :debug)) ; <-- :debug is just going to get replaced
+			  with "It's a computer".  
 ```
-Instead of print-out receiving a string, or a list, we are saying, there will be a key called `:debug` you can just use that. `:debug` will get expanded to "It's a computer".
+Instead of print-out receiving a string, or a list, we are saying, there will be a key called `:debug` you can just use whatever is evaluated in that.
 
 `printf` is one of the earliest functions in computing history. It is extremely complex internally, and lives on your system in some way or another. On linux or mac, you can enter this into your shell.
 ```
@@ -378,7 +385,7 @@ $ printf "hello %s\n" "world"
 hello world
 $ 
 ```
-So printf can take a list of strings. We can edit `debug-it` interface to represent this.
+So `printf` can take a list of strings. We can edit `debug-it` interface to represent this.
 ```
 (@i debug-it (format input)
   :debug (format input))
@@ -390,8 +397,9 @@ So printf can take a list of strings. We can edit `debug-it` interface to repres
   :mouse ""
   :debug ("mouse key is %s\n" :mouse))
 ```
-types are special in that they have access to their `keys` anywhere within the declared `type` scope.
-`printf` is seemingly very robust, and we want to be able to pass in any of the accepted arguments, but you are in the `dynamic` and `weak` tutorial. So we could, just force `printf` to figure out all this for us.
+types are special in that they have access to their `keys` anywhere within the declared `type` scope. This is why the expression in `:debug` can access `:mouse`
+
+`printf` is robust. How do we ensure that we use printf as it is intended?Since you are in the `dynamic` and `weak` tutorial, we are going to let `printf` do the heavy lifting. Sure, you might accidentally use printf incorrectly, pass it 20 arguments? 30 arguments? Will it break? See the `strong` and `static` tutorial to learn about how to do this safely.
 
 Here is the full look at generics and interfaces in action.
 ```
@@ -413,9 +421,10 @@ Here is the full look at generics and interfaces in action.
 and the usage.
 ```
 $ discd repl ./full-example.di
+> (@l mycomp 'computer)
 > (print-out computer)
 It's a computer
-> (@l mycar (:make "Ford" :model "RS200"))
+> (@l mycar ('car :make "Ford" :model "RS200"))
 > (print-out mycar)
 car => :make Ford and :model RS200
 >
