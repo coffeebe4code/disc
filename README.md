@@ -39,10 +39,11 @@ The rest of these sections are just to give the reader an understanding on what 
 # Tutorials
 - [Prerequisites](#prerequisites)
 - [Tooling Mindset](#tooling-mindset)
-- [First Project](#first_project)
+- [First Project](#first-project)
 - [Compilation](#compilation)
-- Embedded Project
-- [Language Specification (Weak + Dynamic)](#language-specification-weak-%2B-dynamic)
+- [Embedded Project](#embedded-project)
+- [Language Specification (Weak and Dynamic)](#language-specification-weak-and-dynamic)
+- [Language Specification (Strong and Static)](#language-specification-strong-and-static)
 
 # Prerequisites
 - You have downloaded and installed `discr`.
@@ -102,17 +103,18 @@ os: linux
 disc runner
 
 usage:
-discd runner [<scripts>] [<args>]
+discd runner [<scripts>] [<args>] [<script-args>]
   <scripts> 
     ./myscript.dc ./nextscript.dc
     space separated scripts. The first script will be treated as the first and main script.
 	
   <args>
     -N, --no-initial		no initial size allocated of ram, this is the default. [--limits] arg ignored.	
-    -G, --gb			initial size of allocated ram in gb.
-    -M, --mb			initial size of allocated ram in mb.
-    -K, --kb			initial size of allocated ram in kb.
-    -L, --limit			the initial size of allocated ram is also the maximum. [--gb, --mb, --kb] must be included or ignored.
+    -g, --gb			initial size of allocated ram in gb.
+    -m, --mb			initial size of allocated ram in mb.
+    -k, --kb			initial size of allocated ram in kb.
+    -l, --limit			the initial size of allocated ram is also the maximum. [--gb, --mb, --kb] must be included or ignored.
+  <script-args>
     --args			the args that will be passed to your scripts entrypoint. Make this the last argument passed to runner
 ```
 
@@ -132,7 +134,7 @@ first-project
 ```
 One of the goals of this project is to make the tooling easier to use. We already know that we can pass a series of scripts to the `runner`. This would be annoying and frustrating to do everytime we want to execute a command like  `discr ./src/first-project.di ./utility-funcs.di ./html-parser.di -G 20 --args google.com`. 
 
-But if we supported something in the project yaml that would include the command to run. We know that we have an additional step in order to execute the cli, which goes against the fastest interpreter goal. First, `discr` would need to be loaded into memory, then discr would need to have all the code to load and parse a yaml file, parse the yaml file, and then load the scripts into memory, then begin execution.
+But if we supported something in the project yaml that would include the command to run. There would be an additional step in order to execute the cli, which goes against the fastest interpreter goal. First, `discr` would need to be loaded into memory, then discr would need to have all the code to load and parse a yaml file, parse the yaml file, and then load the scripts into memory, then begin execution.
 
 In comes the `minifier`, it is the next tool in your arsenal.
 
@@ -140,27 +142,28 @@ In comes the `minifier`, it is the next tool in your arsenal.
 $ discd minifier -h
 
 usage:
-discd minifier [<scripts>] [<args>]
+discd minifier [<scripts>] [<args>] [<script-args>]
   <scripts> 
     ./myscript.dc ./nextscript.dc
     space separated scripts. The first script will be treated as the first and main script.
 	
   <args>
     -N, --no-initial		no initial size allocated of ram, this is the default. [--limits] arg ignored.	
-    -G, --gb			initial size of allocated ram in gb.
-    -M, --mb			initial size of allocated ram in mb.
-    -K, --kb			initial size of allocated ram in kb.
-    -L, --limit			the initial size of allocated ram is also the maximum. [--gb, --mb, --kb] must be included or ignored.
+    -g, --gb			initial size of allocated ram in gb.
+    -m, --mb			initial size of allocated ram in mb.
+    -k, --kb			initial size of allocated ram in kb.
+    -l, --limit			the initial size of allocated ram is also the maximum. [--gb, --mb, --kb] must be included or ignored.
+  <script-args>
     --args			the args that will be passed to your scripts entrypoint. Make this the last argument passed to runner
 ```
 Notice how the usage on the `minifier` tool is exactly the same as the `runner`.
 The minifier will take all the scripts and args that it was given, and bake everything into one script. The args are additive. So if you wanted to minify the previous command. You would do so with.
 ```
-$ discd minifier ./src/first-project.di ./utility-funcs.di .html-parser.di -G 20 --args google.com
+$ discd minifier ./src/first-project.di ./utility-funcs.di ./html-parser.di -G 20 --args google.com
 ```
-This script which was first-project.di and the other two scripts will be minified into just one `out/first-project.min.di`
+This script which was first-project.di and the other two scripts will be minified into just one `./out/first-project.min.di`.
 
-Now in order to run it, all we need is `discr ./out/first-project.min.di`. Let's pretend this project parses html files from websites that are passed in via `--args`. We already know from the `minifier` command ran previously, that `google.com` will be included, we can also pass in others at the runner, as `--args` is additive. 
+Now in order to run it, all we need is `discr ./out/first-project.min.di`. This project parses html files from websites that are passed in via `--args`. We already know from the `minifier` command ran previously, that `google.com` will be included. We can also pass in other websites at the runner, as `--args` is additive. 
 ```
 $ discr ./out/first-project.min.di --args twitch.tv
 ...
@@ -171,7 +174,91 @@ Success! parsed html for { google.com, twitch.tv}
 ### Compilation
 ::todo::
 
-### Language Specification Weak + Dynamic
+---
+### Embedded Project
+
+**Prerequisites**
+
+You have at least read 
+- [First Project](#first-project)
+- [Language Specification (Weak and Dynamic)](#language-specification-weak-and-dynamic)
+- [Language Specification (Strong and Static)](#language-specification-strong-and-dynamic)
+- [Compilation](#compilation)
+
+You have to first determine what are the goals of your project.
+Depending on the resources provided by your Board/Microcontroller, you may need to make a choice about how your project is laid out.
+
+
+- disc allows the developer to write assembly using builtins.
+- disc allows freestanding binaries devoid of any OS/Kernel.
+- disc can be interpreted or compiled.
+- `discr` could be installed on the board if there is a linux kernel and run scripts.
+- disc compiled binaries (different from freestanding) could be installed on the board if there is a linux kernel and ran without the interpreter.
+
+The last bullet point is usually the easiest route, and works for most embedded projects. This option will be referred to as a `(linux based)` embedded project 
+
+If there is no linux kernel, or you do not wish to use a kernel, you will probably choose the second bullet point. This will be referred to as a `(freestanding)` embedded project.  
+
+If you are using a rasberry pi, or other small single board computers, there is probably enough resources to run `discr` on the device. This will be referred to as a `(script based)` embedded project.
+
+Let's set up an embedded project first, and then the tutorials will guide you based on one of those three options from above.
+
+#### First Embedded Project
+
+::todo::
+
+Here is the tutorial .
+
+- [Script Based Embedded](#script-based-embedded)
+- [Linux Based Embedded](#linux-based-embedded)
+- [Freestanding Embedded](#freestanding)
+
+#### Script Based Embedded
+
+#### Linux Based Embedded
+
+#### Freestanding Embedded
+
+You are the cool kid on the block. You want to understand how computers work down to every last bit in the machine. First, you have to see if your arch is supported. If it's not supported, its quite easy to add. It only requires a PR into disc to support it.
+
+Assembly files are designated with their arch preceding the file extension `file-name.{arch}.di`
+
+First add the arch to your project, this will ensure that when you use the `project` tool to generate a file, it will automatically generate all file extensions
+```
+$ discd project add arch --riscv32
+$ discd project gen interrupts --feature
+```
+You will now have a folder and file created for riscv32 
+
+```
+first-project
+  |
+  |--src
+      |--interrupts
+          |--interrupts.riscv32.di
+      |--first-project.di
+  |--project.yaml
+```
+
+#### Assembly Syntax
+The assembly syntax follows the new `asm!` syntax for rust as closely as possible. Writing assembly like this is probably one of the most pleasant experiences in writing assembly.
+Here is an example.
+*** WIP ***
+```
+(add2 #asm (x)
+  (%addi x x num)
+  (%inout ('reg) x)
+  (%c num 2))
+```
+First, the function must be marked with the preprocessor command `#asm`. Next we can use the builtins that are made for this specific arch.
+
+`%addi` takes a `dst`, `src`, and `imm` value.
+
+`%inout` tells the compiler to use any register it chooses with ('reg) to first be in the in value coming from x, and then after the assembly is finished executing that x is also clobbered.
+
+---
+
+### Language Specification Weak and Dynamic
 
 **NOTE**
 This section will not cover the type safety possibilities.
@@ -277,9 +364,11 @@ number examples:
 (%l mynum)
 (%l mynum 0)
 (%l mynum 0.0)
+(%l mynum -500)
 ```
 
-All of the above are valid ways to declare a number. All numbers by default are 64 bit floating point.
+All of the above are valid ways to declare a number. All numbers by default are 64 bit floating point. 
+It is possible to use other types, see [Language Specification Strong and Static](#language-specification-strong-and-static)
 
 ---
 list examples:
@@ -430,3 +519,6 @@ car => :make Ford and :model RS200
 >
 ```
 
+---
+### Language Specification Strong and Static
+::todo::
