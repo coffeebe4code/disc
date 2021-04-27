@@ -244,17 +244,21 @@ first-project
 The assembly syntax follows the new `asm!` syntax for rust as closely as possible. Writing assembly like this is probably one of the most pleasant experiences in writing assembly.
 Here is an example.
 *** WIP ***
+// the implication of taking a type, and using some sort of reflection around 'reg and inout, and the fact you need to mark the command with #asm indicates this entire scoped block is unrelated to the rest of the language.
+// might as well just use (reg), 'reg, or reg?
 ```
 (add2 #asm (x)
   (%addi x x num)
-  (%inout ('reg) x)
+  (%inout ('reg) x) ** wip** <--- what does it mean to take a 'type? is this the instantiation of this type like the rest of the language?
   (%c num 2))
 ```
 First, the function must be marked with the preprocessor command `#asm`. Next we can use the builtins that are made for this specific arch.
 
-`%addi` takes a `dst`, `src`, and `imm` value.
+`%addi` takes a `dst`, `src`, and `imm`.
 
-`%inout` tells the compiler to use any register it chooses with ('reg) to first be in the in value coming from x, and then after the assembly is finished executing that x is also clobbered.
+`%inout` tells the compiler to use any register it chooses with ('reg), and then x is both an `in` and `out`. The compiler will successfully deduce that it can leave x in the same register, and it will be clobbered. The compiler keeps a list of all registers which are currently in use. if the `%out` or `%inout` is not specified for the variable/register, the compiler will put which ever register contained the variable x, back in the available pool to draw from.
+
+With proper usage of the `%in %out %inout %inlateout %lateout` You are able to squeeze out the best performance possible.
 
 ---
 
