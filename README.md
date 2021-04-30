@@ -1,5 +1,5 @@
 # About
-The DISC language is a lisp dialect based language. The language itself has many features that most developers are accustomed to in the modern era, as well as several new ones.
+The DISC language is a lisp adjacent language. The language itself has many features that most developers are accustomed to in the modern era, as well as several new ones.
 This project has goals that will ensure success and adoption of the language. The goals are...
 
 - **Tooling is first class**. The language server, the cli, the parser, everything for a developer to be successful will all be included in decisions and apart of the main project.
@@ -291,17 +291,23 @@ In order for parsing of a script to execute faster, there are special characters
 
 `'` - type indication identifier.
 
-`$ & * ... . ? /` - are reserved for now.
+`.` - list literal identifier.
+
+`$ & * ... ? /` - are reserved for now.
 
 ---
 #### Functions
-You define functions using `f` in conjunction with the `@` identifier:
-```
-@f is short for `function`
-```
+You define functions as follows:
 ```
 (@f add (x y)
   (%+ x y)) 
+```
+You may use either of these declarations.
+```
+@f
+@fn
+@function
+@func
 ```
 You can use a function with the name of the function:
 ```
@@ -347,96 +353,116 @@ including builtins allows us to quickly parse these commonly used functions, and
 
 ---
 #### Variables
-You define variables using the identifier `@` along with `l`:
+You define variables using as follows:
 ```
-@l is short for `let`
+(@l myvar) 
 ```
-
+You may use either of these declarations.
+```
+@l
+@let
+```
 ---
 string examples:
 ``` 
 (@l mystring)
-(@l mystring "")
-(@l mystring "this is a string.")
+(@l mystring2 "")
+(@l mystring3 "this is a string.")
+(@l mystring4 ('string "strongly typed string")) ; <--- types are not mandatory, only if they can not be automatically determined.
 ```
 
-All of the above are valid ways to declare a string. All these examples will live on the heap.
+All of the above are valid ways to declare a variable. The latter 3 are automatically deduced to be strings.
 
 ---
 number examples:
 ```
-(%l mynum)
-(%l mynum 0)
-(%l mynum 0.0)
-(%l mynum -500)
+(@l mynum1)
+(@l mynum2 0)
+(@l mynum3 0.0)
+(@l mynum4 -500)
 ```
 
 All of the above are valid ways to declare a number. All numbers by default are 64 bit floating point. 
-It is possible to use other types, see [Language Specification Strong and Static](#language-specification-strong-and-static)
+It is possible to use other types of numbers, see [Language Specification Strong and Static](#language-specification-strong-and-static)
 
 ---
 list examples:
 ```
-(%l mylist)
-(%l mylist ())
-(%l mylist (1 2 3))
-(%l mylist ("hello" "there"))
-(%l mylist ("general" 1 2 3))
+(@l mylist1)
+(@l mylist2 ())
+(@l mylist3 .(1 2 3))
+(@l mylist4 ('list "hello" "there"))
+(@l mylist5 ('list "general" 1 2 3))
 ```
 
-All of the above are valid ways to declare a list. Lists do not need to be of the same type.
+All of the above are valid ways to declare a list. Lists do not need to be of the same type. `()` and `(@l mynum)` evaluate to nil.
+`.` is another identifier indicating it is a list literal.
 
 ---
 #### Types
-You can define a type with the identifier for definitions `@` along with `t`, and give the type properties with the identifier  `:`
-```
-@t is short for type
-```
+You can define a type as follows:
 ```
 (@t computer 
   :mouse ""
-  :keyboard ""
-  :cpu ""
   :monitors ()
   :speakers ())
 ```
-You can use a type with its name. The type will live on the stack.
+You may use either of these declarations
+```
+@t
+@type
+```
+Declaring a variable with a type is as easy as.
+```
+(@l mycomputer 'computer)
+```
+You can use a type with its name. In a moment we will talk about the `print-out` and `add-monitor` functions.
 ```
 $ discd repl ./computer.di ./debug.di
 > (@l mycomp 'computer)
-> (print-out (add-monitor (mycomp "Generic 720p Monitor")))
+> (print-out mycomp)
+('computer 
+  :mouse ""
+  :monitors ()
+  :speakers ())
+> (print-out (add-monitor mycomp "Generic 720p Monitor"))
 ('computer
   :mouse ""
-  :keyboard ""
-  :cpu ""
-  :monitors ("Generic 720p Monitor")
+  :monitors ('list "Generic 720p Monitor")
   :speakers "")
 ```
 In this example the add-monitor function returns the same instance of the computer to the caller `print-out` which pretty prints the type to stdout.
 
 ---
 #### Interfaces and Generics
-You can define an interface with the identifier for definitions `@` along with `i`:
+You can define an interface as follows:
 ```
-@i is short for interface
+(@i debug-it (param1)
+  :debug param1)
+
+(@i debug-it-strong ('string param1)
+  :debug param1)
 ```
+You may also use either of these declarations:
 ```
-(@i debug-it (o)
-  :debug (o))
+@i
+@interface
 ```
 In order to add an interface to a type, you must use the identifier `,` for hooking in the requirement
 ```
 (@t computer (,debug-it)
   :mouse ""
-  :debug ("It's a computer"))
+  :debug "It's a computer")
 ```
 Then, you can make a generic function which will take the interface prefaced with the hook `,` identifier.
 ```
-@g is short for generic
-```
-```
 (@g print-out (,debug-it)
   (printf :debug))
+```
+you may use either of these declarations:
+```
+@generic
+@g
 ```
 And finally, its usage.
 ```
@@ -448,16 +474,16 @@ It's a computer
 These are a bit more complex, albeit powerful, so let's go over what is happening.
 
 First,
-we define an interface. When implementing it, you must consume 1 type, the previous example used `(o)`. This indicates it needs to be an expression of any type. We can also use just `o` because of how `printf` is a bit special.
+we define an interface. When implementing it, you must consume 1 type,
 ```
-(@i debug-it o
+(@i debug-it (o)
   :debug o)
 
 @t computer (,debug-it)
   :mouse ""
   :debug "It's a computer")
 ```
-The above is saying that in order to implement the `debug-it` interface, you must have a `key` called `:debug`, and it must be a type. All expressions evaluate to a type. So these are both valid syntaxes. Visualizing the substitution I find is most helpful.
+The above is saying that in order to implement the `debug-it` interface, you must have a `key` called `:debug`, and it must be a type. All expressions evaluate to a type.
 
 ```
 (@g print-out (,debug-it)
@@ -480,7 +506,7 @@ $
 ```
 So `printf` can take a list of strings. We can edit `debug-it` interface to represent this.
 ```
-(@i debug-it (format input)
+(@i debug-it (format input) ; <-- problem here: the input requires format and input, how should debug receive both arguments?
   :debug (format input))
 
 (@g print-out (,debug-it)
@@ -488,7 +514,7 @@ So `printf` can take a list of strings. We can edit `debug-it` interface to repr
 
 (@t computer (,debug-it)
   :mouse ""
-  :debug ("mouse key is %s\n" :mouse))
+  :debug "mouse key is %s\n" :mouse) ; <-- same issue here.
 ```
 types are special in that they have access to their `keys` anywhere within the declared `type` scope. This is why the expression in `:debug` can access `:mouse`
 
@@ -496,7 +522,7 @@ types are special in that they have access to their `keys` anywhere within the d
 
 Here is the full look at generics and interfaces in action.
 ```
-(@i debug-it o
+(@i debug-it (o)
   :debug o)
 
 (@g print-out (,debug-it)
@@ -509,13 +535,13 @@ Here is the full look at generics and interfaces in action.
 (@t car (,debug-it)
   :make ""
   :model ""
-  :debug ("car => :make %s and :model %s\n" :make :model))
+  :debug "car => :make %s and :model %s\n" :make :model)
 ```
 and the usage.
 ```
 $ discd repl ./full-example.di
 > (@l mycomp 'computer)
-> (print-out computer)
+> (print-out mycompt
 It's a computer
 > (@l mycar ('car :make "Ford" :model "RS200"))
 > (print-out mycar)
