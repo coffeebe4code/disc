@@ -273,7 +273,7 @@ This is the bear minimum to run a program somewhat like what you expect.
 
 In order for parsing of a script to execute faster, there are special characters that can't be used anywhere else. Many of them are reserved for future use, or are used internally to the compiler, parser, or minifier. They are prepended to text.
 ```
-@ # $ % & * ; :  , ... . () ' " ? /
+@ # $ % & * ; :  , ... . () ' " ? / |
 ```
 `@` - used for defining/declaring.
 
@@ -293,7 +293,11 @@ In order for parsing of a script to execute faster, there are special characters
 
 `.` - list literal identifier.
 
-`$ & * ... ? /` - are reserved for now.
+`$` - reflection identifier.
+
+`...` - variadic identifer.
+
+`& * ? / |` - are reserved for now.
 
 ---
 #### Functions
@@ -349,7 +353,7 @@ Some functions are built into the language. Here is a list of all.
 %! - falsey. works the same as `not` on bits, but handles nil for types.
 %= - equality. same as xor on bits, but handles nil for types.
 ```
-including builtins allows us to quickly parse these commonly used functions, and do optimizations at the compiler level.
+including builtins allows us to quickly parse these commonly used functions, and perform optimizations at the compiler level.
 
 ---
 #### Variables
@@ -368,10 +372,10 @@ string examples:
 (@l mystring)
 (@l mystring2 "")
 (@l mystring3 "this is a string.")
-(@l mystring4 ('string "strongly typed string")) ; <--- types are not mandatory, only if they can not be automatically determined.
+(@l mystring4 ('string "strongly typed string"))
 ```
 
-All of the above are valid ways to declare a variable. The latter 3 are automatically deduced to be strings.
+All of the above are valid ways to declare a variable. The last 3 are automatically deduced to be strings. You may get undesired results
 
 ---
 number examples:
@@ -400,22 +404,26 @@ All of the above are valid ways to declare a list. Lists do not need to be of th
 
 ---
 #### Types
-You can define a type as follows:
-```
-(@t computer 
-  :mouse ""
-  :monitors ()
-  :speakers ())
-```
 You may use either of these declarations
 ```
 @t
 @type
 ```
+Here is how to define a type
+```
+(@t computer 
+  :mouse ""
+  :monitors ()
+  :speakers ()
+  )
+```
+Type definitions stray from normal list syntax a little bit. In the above example, `:mouse` is a string much like how we use the `@l mystring ""` syntax. `:monitors` and `:speakers` are `nil` properties
 Declaring a variable with a type is as easy as.
 ```
 (@l mycomputer 'computer)
 ```
+This creates a new instance of an empty `'computer` object.
+
 You can use a type with its name. In a moment we will talk about the `print-out` and `add-monitor` functions.
 ```
 $ discd repl ./computer.di ./debug.di
@@ -448,7 +456,7 @@ You may also use either of these declarations:
 @i
 @interface
 ```
-In order to add an interface to a type, you must use the identifier `,` for hooking in the requirement
+In order to add an interface to a type, you must use the identifier `,` for `hooking` in the requirement
 ```
 (@t computer (,debug-it)
   :mouse ""
@@ -474,16 +482,18 @@ It's a computer
 These are a bit more complex, albeit powerful, so let's go over what is happening.
 
 First,
-we define an interface. When implementing it, you must consume 1 type,
+we define an interface, you must declare any types it uses in its constructor.
 ```
 (@i debug-it (o)
   :debug o)
-
+```
+The above example requires any type `o`, and that type `o` is on the `:debug` property.
+```
 @t computer (,debug-it)
   :mouse ""
   :debug "It's a computer")
 ```
-The above is saying that in order to implement the `debug-it` interface, you must have a `key` called `:debug`, and it must be a type. All expressions evaluate to a type.
+The above is saying that in order to implement the `debug-it` interface, you must have a `key` called `:debug`. This example correctly implements the `debug-it` interface.
 
 ```
 (@g print-out (,debug-it)
@@ -506,17 +516,17 @@ $
 ```
 So `printf` can take a list of strings. We can edit `debug-it` interface to represent this.
 ```
-(@i debug-it (format input) ; <-- problem here: the input requires format and input, how should debug receive both arguments?
-  :debug (format input))
+(@i debug-it (format input)
+  :debug ('list format input))
 
 (@g print-out (,debug-it)
   (printf :debug))
 
 (@t computer (,debug-it)
   :mouse ""
-  :debug "mouse key is %s\n" :mouse) ; <-- same issue here.
+  :debug ('list "mouse key is %s\n" :mouse))
 ```
-types are special in that they have access to their `keys` anywhere within the declared `type` scope. This is why the expression in `:debug` can access `:mouse`
+types are special in that they have access to their `keys` anywhere within the declared `type` scope. This is why the list in `:debug` can access `:mouse`
 
 `printf` is robust. How do we ensure that we use printf as it is intended?Since you are in the `dynamic` and `weak` tutorial, we are going to let `printf` do the heavy lifting. Sure, you might accidentally use printf incorrectly, pass it 20 arguments? 30 arguments? Will it break? See the `strong` and `static` tutorial to learn about how to do this safely.
 
@@ -535,9 +545,11 @@ Here is the full look at generics and interfaces in action.
 (@t car (,debug-it)
   :make ""
   :model ""
-  :debug "car => :make %s and :model %s\n" :make :model)
+  :debug ('list "car => :make %s and :model %s\n" :make :model))
 ```
-and the usage.
+printf is doing a bit of work here, as we are passing it a string in one instance, and a list in another.
+ 
+Here is the usage.
 ```
 $ discd repl ./full-example.di
 > (@l mycomp 'computer)
