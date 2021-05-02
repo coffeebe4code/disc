@@ -283,7 +283,7 @@ In order for parsing of a script to execute faster, there are special characters
 
 `()` - scoping block. A file is an implicit scope block.
 
-`:` - used for keys, may also be referred to as properties.
+`:` - indicates properties on a type.
 
 `,` - hook identifier. Used for implementing interfaces.
 
@@ -372,10 +372,10 @@ string examples:
 (@l mystring)
 (@l mystring2 "")
 (@l mystring3 "this is a string.")
-(@l mystring4 ('string "strongly typed string"))
+(@l mystring4 'string "strongly typed string")
 ```
 
-All of the above are valid ways to declare a variable. The last 3 are automatically deduced to be strings. You may get undesired results
+All of the above are valid ways to declare a variable. The last 3 are automatically deduced to be strings. You may get undesired results if all variables are auto, similar to javascript.
 
 ---
 number examples:
@@ -392,17 +392,47 @@ It is possible to use other types of numbers, see [Language Specification Strong
 ---
 list examples:
 ```
-(@l mylist1)
-(@l mylist2 ())
-(@l mylist3 .(1 2 3))
-(@l mylist4 ('list "hello" "there"))
-(@l mylist5 ('list "general" 1 2 3))
+(@l mylist1)	; <-- nil
+(@l mylist2 ()) ; <-- nil
+(@l mylist3 [1 2 3])
+(@l mylist4 'list ["hello" "there"])
+(@l mylist5 ["general" 1 2 3])
 ```
 
 All of the above are valid ways to declare a list. Lists do not need to be of the same type. `()` and `(@l mynum)` evaluate to nil.
 `.` is another identifier indicating it is a list literal.
 
 ---
+#### Enums
+
+You may use either of these declarations
+```
+@e
+@enum
+```
+Here is how to define an enum
+```
+(@e Directions 
+  'NORTH
+  'SOUTH
+  'EAST
+  'WEST)
+```
+and its usage.
+```
+(@l current-direction 'NORTH)
+```
+You can use `%match` in order to match on enums.
+```
+(@l current-direction 'NORTH)
+(@f turn-clockwise 'Direction (myparam)
+  (%match current-direction
+    'NORTH myparam'EAST 
+    'SOUTH myparam'WEST
+    'EAST myparam'SOUTH
+    'WEST myparam'NORTH)
+```
+
 #### Types
 You may use either of these declarations
 ```
@@ -414,16 +444,15 @@ Here is how to define a type
 (@t computer 
   :mouse ""
   :monitors ()
-  :speakers ()
-  )
+  :speakers ())
 ```
-Type definitions stray from normal list syntax a little bit. In the above example, `:mouse` is a string much like how we use the `@l mystring ""` syntax. `:monitors` and `:speakers` are `nil` properties
+Type definitions stray from normal list syntax a little bit. In the above example, `:mouse` is a string much like how we use the `@l mystring ""` syntax. `:monitors` and `:speakers` evaluate to `nil`
 Declaring a variable with a type is as easy as.
 ```
-(@l mycomputer 'computer)
+(@l mycomputer1 'computer)
+(@l mycomputer2 'computer (:mouse "Gaming Mouse"))
+(@l mycomputer3 'computer ("Gaming Mouse" ["Default 1" "Default 2"]))
 ```
-This creates a new instance of an empty `'computer` object.
-
 You can use a type with its name. In a moment we will talk about the `print-out` and `add-monitor` functions.
 ```
 $ discd repl ./computer.di ./debug.di
@@ -436,10 +465,17 @@ $ discd repl ./computer.di ./debug.di
 > (print-out (add-monitor mycomp "Generic 720p Monitor"))
 ('computer
   :mouse ""
-  :monitors ('list "Generic 720p Monitor")
+  :monitors ["Generic 720p Monitor"])
   :speakers "")
 ```
 In this example the add-monitor function returns the same instance of the computer to the caller `print-out` which pretty prints the type to stdout.
+And finally, it is possible to provide `constructor args`
+```
+(@t computer 'string 'list (mouse monitors)
+  :mouse mouse
+  :monitors monitors)
+```
+This says that any instance of computer could be provided initial values, and to where they should be assigned.
 
 ---
 #### Interfaces and Generics
@@ -448,9 +484,13 @@ You can define an interface as follows:
 (@i debug-it (param1)
   :debug param1)
 
-(@i debug-it-strong ('string param1)
+(@i debug-it-strong 'string (param1)
   :debug param1)
 ```
+The first interface can take any type in the `constructor args` and ensures that they get assigned to the `:debug` property.
+The second interface declares that this interface is strictly for `strings` in `:debug` property.
+
+`constructor args` is used loosely here, as there is never going to be an instance of the interface.
 You may also use either of these declarations:
 ```
 @i
@@ -458,16 +498,19 @@ You may also use either of these declarations:
 ```
 In order to add an interface to a type, you must use the identifier `,` for `hooking` in the requirement
 ```
-(@t computer (,debug-it)
+(@t computer ,debug-it
   :mouse ""
   :debug "It's a computer")
 ```
-Then, you can make a generic function which will take the interface prefaced with the hook `,` identifier.
+Notice how `,debug-it` is not in its `constructor args`. That is because, there is no variable being passed into `computer`. This is just a contract, that the `computer` type should implement the `:debug` property.
+
+Now, you can make a generic function which will take the interface prefaced with the hook `,` identifier.
 ```
 (@g print-out (,debug-it)
   (printf :debug))
 ```
-you may use either of these declarations:
+This generic function states that the first variable passed to `print-out` must implement the `debug-it` interface.
+You may use either of these declarations:
 ```
 @generic
 @g
@@ -487,20 +530,20 @@ we define an interface, you must declare any types it uses in its constructor.
 (@i debug-it (o)
   :debug o)
 ```
-The above example requires any type `o`, and that type `o` is on the `:debug` property.
+The above example requires any type, and will be referenced as `o`, and that type `o` is on the `:debug` property.
 ```
-@t computer (,debug-it)
+@t computer ,debug-it
   :mouse ""
   :debug "It's a computer")
 ```
-The above is saying that in order to implement the `debug-it` interface, you must have a `key` called `:debug`. This example correctly implements the `debug-it` interface.
+The above is saying that in order to implement the `debug-it` interface, you must have a `property` called `:debug`. This example correctly implements the `debug-it` interface.
 
 ```
 (@g print-out (,debug-it)
   (printf :debug)) ; <-- :debug is just going to get replaced
 			  with "It's a computer".  
 ```
-Instead of print-out receiving a string, or a list, we are saying, there will be a key called `:debug` you can just use whatever is evaluated in that.
+Instead of print-out receiving a string, or a list, we are saying, there will be a `property` called `:debug` you can just use whatever is evaluated in that.
 
 `printf` is one of the earliest functions in computing history. It is extremely complex internally, and lives on your system in some way or another. On linux or mac, you can enter this into your shell.
 ```
@@ -516,19 +559,19 @@ $
 ```
 So `printf` can take a list of strings. We can edit `debug-it` interface to represent this.
 ```
-(@i debug-it (format input)
-  :debug ('list format input))
+(@i debug-it 'string 'string (format input)  
+  :debug 'list [format input])
 
 (@g print-out (,debug-it)
   (printf :debug))
 
-(@t computer (,debug-it)
+(@t computer ,debug-it
   :mouse ""
-  :debug ('list "mouse key is %s\n" :mouse))
+  :debug 'list ["mouse key is %s\n" :mouse])
 ```
-types are special in that they have access to their `keys` anywhere within the declared `type` scope. This is why the list in `:debug` can access `:mouse`
+types are special in that they have access to their `properties` anywhere within the declaration scope. This is why the list in `:debug` can access `:mouse`
 
-`printf` is robust. How do we ensure that we use printf as it is intended?Since you are in the `dynamic` and `weak` tutorial, we are going to let `printf` do the heavy lifting. Sure, you might accidentally use printf incorrectly, pass it 20 arguments? 30 arguments? Will it break? See the `strong` and `static` tutorial to learn about how to do this safely.
+`printf` is robust. How do we ensure that we use printf as it is intended? Since you are in the `dynamic` and `weak` tutorial, we are going to let `printf` do the heavy lifting. Sure, you might accidentally use printf incorrectly, pass it 20 arguments? 30 arguments? Will it break? See the `strong` and `static` tutorial to learn about how to do all this safely.
 
 Here is the full look at generics and interfaces in action.
 ```
@@ -542,10 +585,10 @@ Here is the full look at generics and interfaces in action.
   :mouse ""
   :debug "It's a computer")
 
-(@t car (,debug-it)
+(@t car ,debug-it
   :make ""
   :model ""
-  :debug ('list "car => :make %s and :model %s\n" :make :model))
+  :debug ["car => :make %s and :model %s\n" :make :model])
 ```
 printf is doing a bit of work here, as we are passing it a string in one instance, and a list in another.
  
@@ -553,14 +596,54 @@ Here is the usage.
 ```
 $ discd repl ./full-example.di
 > (@l mycomp 'computer)
-> (print-out mycompt
+> (print-out mycomp
 It's a computer
 > (@l mycar ('car :make "Ford" :model "RS200"))
 > (print-out mycar)
 car => :make Ford and :model RS200
 >
 ```
+#### A Word On Types and Enums.
+::todo::
 
 ---
 ### Language Specification Strong and Static
+#### Prerequisites
+You have at least read [Language Specification Weak and Dynamic](#language-specification-weak-and-dynamic)
+
+#### Variables Pt. 2
+You have possibly scoffed at some of the unreliable non type safe way of doing things in that tutorial. Let's first revist the variables section, now with type safety.
+You can still declare variables the same way.
+```
+(@l mystring1)
+```
+However, this prevents a problem, what if we assign `mystring1` to a number. what if later we reassign `mystring1` to a number. This is the power of using this language, with the `--dynamic` flag.
+
+With the `--static` flag passed to either the `linter` or `compiler` this is no longer possible. you will get an error.
+Take for example this file `./mytest.di`
+```
+(@l mystring1)
+```
+```
+$ discd linter ./mytest.di --static
+errors:
+  ./mytest.di - (ln 0, p 13)		: type-not-deduced (d0)
+```
+You can enable undeduced types by passing the name of the error or the id of the error so either `--type-not-deduced` or `d0` will allow this behavior.
+Be careful about which flags you choose to enable on your projects.
+
+Variables can also be marked as constant, once their initial value is assigned, they can never be reassigned again.
+```
+(@c mystring "Hello")
+(mystring "Constant")
+```
+```
+$ discd compiler ./mytest.di --static
+errors:
+  ./mytest.di - (ln 1, p 10)		: const-reassignment (d2)
+```
+
+#### Mutability and the Borrow Checker
 ::todo::
+
+#### Enums Pt. 2
