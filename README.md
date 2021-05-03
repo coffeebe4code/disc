@@ -313,7 +313,7 @@ You may use either of these declarations.
 @function
 @func
 ```
-You can use a function with the name of the function:
+You can use a function with the name of the function. `myadd` file contains the previous function definition.
 ```
 $ discd repl ./myadd.di
 > (add 33 9)
@@ -375,7 +375,7 @@ string examples:
 (@l mystring4 'string "strongly typed string")
 ```
 
-All of the above are valid ways to declare a variable. The last 3 are automatically deduced to be strings. You may get undesired results if all variables are auto, similar to javascript.
+All of the above are valid ways to declare a variable. The last 3 are automatically deduced to be strings. You may get undesired results if all variables can't be deduced.
 
 ---
 number examples:
@@ -418,21 +418,45 @@ Here is how to define an enum
   'EAST
   'WEST)
 ```
-and its usage.
+Defining an enum is as easy as.
 ```
 (@l current-direction 'NORTH)
 ```
 You can use `%match` in order to match on enums.
 ```
-(@l current-direction 'NORTH)
 (@f turn-clockwise 'Direction (myparam)
-  (%match current-direction
-    'NORTH myparam'EAST 
-    'SOUTH myparam'WEST
-    'EAST myparam'SOUTH
-    'WEST myparam'NORTH)
+  (%match myparam
+    'NORTH myparam 'EAST 
+    'SOUTH myparam 'WEST
+    'EAST myparam 'SOUTH
+    'WEST myparam 'NORTH))
 ```
-
+And its usage. Let's assume the enum definition, the variable current-direction is declared, and the function is declared in `enum-example.di`
+```
+$ discr ./enum-example.di ./print.di
+>(print-out (turn-clockwise current-direction))
+'EAST
+>(print-out myparam)
+'EAST
+```
+Notice how in this example `myparam` was assigned the value, and then `myparam` was an implicit return to the caller.
+Similarly, you could have the function declared as so,
+```
+(@f look-right 'Direction (myparam)
+  (%match myparam
+    'NORTH 'EAST 
+    'SOUTH 'WEST
+    'EAST 'SOUTH
+    'WEST 'NORTH))
+```
+and its usage.
+```
+$ discr ./enum-example.di ./print.di
+>(print-out (look-right current-direction))
+'EAST
+>(print-out myparam)
+'NORTH
+```
 #### Types
 You may use either of these declarations
 ```
@@ -455,7 +479,7 @@ Declaring a variable with a type is as easy as.
 ```
 You can use a type with its name. In a moment we will talk about the `print-out` and `add-monitor` functions.
 ```
-$ discd repl ./computer.di ./debug.di
+$ discd repl ./computer.di ./print.di
 > (@l mycomp 'computer)
 > (print-out mycomp)
 ('computer 
@@ -592,7 +616,7 @@ Here is the full look at generics and interfaces in action.
 ```
 printf is doing a bit of work here, as we are passing it a string in one instance, and a list in another.
  
-Here is the usage.
+Here is the usage. `full-example` contains all the code from the previous code block.
 ```
 $ discd repl ./full-example.di
 > (@l mycomp 'computer)
@@ -603,8 +627,6 @@ It's a computer
 car => :make Ford and :model RS200
 >
 ```
-#### A Word On Types and Enums.
-::todo::
 
 ---
 ### Language Specification Strong and Static
@@ -617,7 +639,7 @@ You can still declare variables the same way.
 ```
 (@l mystring1)
 ```
-However, this prevents a problem, what if we assign `mystring1` to a number. what if later we reassign `mystring1` to a number. This is the power of using this language, with the `--dynamic` flag.
+However, this prevents a problem, what if we assign `mystring1` to a number. what if later we reassign `mystring1` to a string.
 
 With the `--static` flag passed to either the `linter` or `compiler` this is no longer possible. you will get an error.
 Take for example this file `./mytest.di`
@@ -643,7 +665,42 @@ errors:
   ./mytest.di - (ln 1, p 10)		: const-reassignment (d2)
 ```
 
+#### Enums Pt. 2
+In the first discussion about enums, we covered declaration, and made a function. Here is the example again,
+
+```
+(@e Directions 
+  'NORTH
+  'SOUTH
+  'EAST
+  'WEST)
+
+(@f turn-clockwise 'Direction (myparam)
+  (%match myparam
+    'NORTH myparam 'EAST 
+    'SOUTH myparam 'WEST
+    'EAST myparam 'SOUTH
+    'WEST myparam 'NORTH))
+```
+Enums with static typing, are required to solve for all possible inputs. You may provide an `'_` to indicate the rest of all possible types.
+```
+(@f turn-east 'Direction (myparam)
+  (%match myparam
+    'EAST myparam
+    '_ myparam 'EAST))
+```
+This is a contrived example, at minimum it looks like it saves an unnecessary assignment if `myparam` happens to look east already, at the expense using a branch check.
+The actual type of object that the enum `Direction` is, is a type that must evaluate to a different type. Meaning the longform value of `myparam` in the above example is.
+```
+'Direction'EAST
+```
+`'EAST` is also a type. We can use `'EAST` as a parameter to a function as well.?
+```
+(@f rotate-solar-panel 'EAST 'AFTERNOON (solarPanel sunLocation) ; <--- ::todo:: should it look something like this?
+    (angle solarPanel 0))
+```
+::todo:: maybe use `@d` for dependent types identifier. could this be worked into interfaces to set the required types up ie, sunLocation doesn't matter if its morning, and east.
+
 #### Mutability and the Borrow Checker
 ::todo::
 
-#### Enums Pt. 2
