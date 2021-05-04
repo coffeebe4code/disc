@@ -273,7 +273,7 @@ This is the bear minimum to run a program somewhat like what you expect.
 
 In order for parsing of a script to execute faster, there are special characters that can't be used anywhere else. Many of them are reserved for future use, or are used internally to the compiler, parser, or minifier. They are prepended to text.
 ```
-@ # $ % & * ; :  , ... . () ' " ? / |
+@ # $ % & * ; :  , ... . () ' " ? / | _
 ```
 `@` - used for defining/declaring.
 
@@ -296,6 +296,8 @@ In order for parsing of a script to execute faster, there are special characters
 `$` - reflection identifier.
 
 `...` - variadic identifer.
+
+`_` - rest identifier. used in casematching to catch the remaining possibilities.
 
 `& * ? / |` - are reserved for now.
 
@@ -682,12 +684,12 @@ In the first discussion about enums, we covered declaration, and made a function
     'EAST myparam 'SOUTH
     'WEST myparam 'NORTH))
 ```
-Enums with static typing, are required to solve for all possible inputs. You may provide an `'_` to indicate the rest of all possible types.
+Enums with static typing, are required to solve for all possible inputs. You may provide an `_` to indicate the rest of all possible types.
 ```
 (@f turn-east 'Direction (myparam)
   (%match myparam
     'EAST myparam
-    '_ myparam 'EAST))
+    _ myparam 'EAST))
 ```
 This is a contrived example, at minimum it looks like it saves an unnecessary assignment if `myparam` happens to look east already, at the expense using a branch check.
 The actual type of object that the enum `Direction` is, is a type that must evaluate to a different type. Meaning the longform value of `myparam` in the above example is.
@@ -700,6 +702,19 @@ The actual type of object that the enum `Direction` is, is a type that must eval
     (angle solarPanel 0))
 ```
 ::todo:: maybe use `@d` for dependent types identifier. could this be worked into interfaces to set the required types up ie, sunLocation doesn't matter if its morning, and east.
+
+so then the usage might look something like this.
+```
+(@f update-panels 'rotate-solar-panel 'Direction 'SunLocation (panel sunlocation)
+  (rotate-solar-panel panel sunlocation))
+```
+and it's potential usage
+```
+(@l mypanel)
+(@l sun)
+(%while (%= 1 1) 
+  (update-panels mypanel (get-sun-location))
+```
 
 #### Mutability and the Borrow Checker
 ::todo::
