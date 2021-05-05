@@ -291,15 +291,13 @@ In order for parsing of a script to execute faster, there are special characters
 
 `'` - type indication identifier.
 
-`.` - list literal identifier.
-
 `$` - reflection identifier.
 
 `...` - variadic identifer.
 
 `_` - rest identifier. used in casematching to catch the remaining possibilities.
 
-`& * ? / |` - are reserved for now.
+`& * ? / | .` - are reserved for now.
 
 ---
 #### Functions
@@ -402,7 +400,6 @@ list examples:
 ```
 
 All of the above are valid ways to declare a list. Lists do not need to be of the same type. `()` and `(@l mynum)` evaluate to nil.
-`.` is another identifier indicating it is a list literal.
 
 ---
 #### Enums
