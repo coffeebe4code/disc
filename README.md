@@ -380,7 +380,7 @@ All of the above are valid ways to declare a variable. The last 3 are automatica
 ---
 number examples:
 ```
-(@l mynum1)
+(@l mynum1) 
 (@l mynum2 0)
 (@l mynum3 0.0)
 (@l mynum4 -500)
@@ -665,6 +665,32 @@ errors:
   ./mytest.di - (ln 1, p 10)		: const-reassignment (d2)
 ```
 
+---
+#### Numbers pt 2.
+
+Here is a quick table to describe the number types supported.
+
+|type  |size(bits)|range							|explanation|
+|-------|-----------|-------------------|-----------|
+|'mask	|8					|na									|typically used for bit manipulations, range is irrelevant|
+|'char	|8					|na									|typically used for characters, range is irrelevant|
+|'sbyte	|8					|[-127, +127]				|different type than char, guaranteed to be signed|
+|'ubyte	|8					|[0,255]						|different type than char, guaranteed to be unsigned|
+|'sshort|16					|[-32,767, +32,767]	|short signed integer|
+|'ushort|16					|[0,+65,535]				|short unsigned integer|
+|'sint	|32					|[-2,147,483,647, +2,147,483,647]|medium signed integer|
+|'uint	|32					|[0,+4,294,967,295]	|medium unsigned integer|
+|'slong	|64					|[-9,223,372,036,854,775,807, +9,223,372,036,854,775,807]|long signed integer|
+|'ulong	|64					|[0, +18,446,744,073,709,551,615]|long unsigned integer|
+			
+Rather than provide `C` compatability, each arch is guaranteed to be sized appropriately.
+You can declare variables as follows.
+```
+(@l myint1 'sint 2147483647)
+(@l myint2 'uint) ; <-- all bits set to 0 if never set.
+```
+
+---
 #### Enums Pt. 2
 In the first discussion about enums, we covered declaration, and made a function. Here is the example again,
 
