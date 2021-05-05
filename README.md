@@ -448,7 +448,8 @@ Similarly, you could have the function declared as so,
     'EAST 'SOUTH
     'WEST 'NORTH))
 ```
-and its usage.
+This will not change the value of myparam.
+Its usage.
 ```
 $ discr ./enum-example.di ./print.di
 >(print-out (look-right current-direction))
