@@ -15,7 +15,7 @@ What does disc stand for?
 - **S**trongly (typed) 
 - **C**ompiled language.
 
-You read that correctly. The interpreter and compiler for disc can give you options to control the four pillars of static, dynamic, weak, and strong typing.
+You read that correctly. The interpreter and compiler for disc can give you options to control the four pillars of static and dynamic type analysis, weak and strong typing.
 
 Binaries are not cross-platform, Scripts are cross-platform. Developers with disc will be able to choose to create minified scripts that can be ran on any machine, compiled binaries, or both. Many developers work on different systems, and the tools output a binary that is specific to x86-64, riscv32, arm32, the list goes on.
 In the business world for CICD, many developers would work on windows, but then pipelines or servers could be linux based, or if the company is fancy, they might even have their developers be on mac. We need to make the code that is developed, portable. 
@@ -266,7 +266,9 @@ With proper usage of the `%in %out %inout %inlateout %lateout` You are able to s
 
 **NOTE**
 This section will not cover the type safety possibilities.
-This is the bear minimum to run a program somewhat like what you expect.
+This is the bear minimum to run a program somewhat like what you expect. The `discr` tool will run the code provided, so long as its syntax makes a valid program. `((()))` is a valid program. `(()` is not a valid program. 
+
+In many other dynamically typed languages, type checking will happen at run time. This has a performance implication, and this can easily be avoided if the developer who prefers a Dynamic and Weak understands the way the implicit conversions work. All type conversions and type checking will be discussed in the sections as they come up. These sections will be titled **Runtime Behavior**. This language has a `default` way of executing programs with the runner, and this will not change. You will find that the runner makes decisions about your programs in real time. That is why it is important to discuss how the runner will behave with regards to `weak and dynamic` execution. 
 
 ---
 #### Identifiers
@@ -353,7 +355,7 @@ Some functions are built into the language. Here is a list of all.
 %! - falsey. works the same as `not` on bits, but handles nil for types.
 %= - equality. same as xor on bits, but handles nil for types.
 ```
-including builtins allows us to quickly parse these commonly used functions, and perform optimizations at the compiler level.
+including builtins allows us to quickly parse these commonly used functions, knowing immediately that an enclosing scope is a builtin, allows us to parse and build into an AST quickly.
 
 ---
 #### Variables
@@ -375,7 +377,7 @@ string examples:
 (@l mystring4 'string "strongly typed string")
 ```
 
-All of the above are valid ways to declare a variable. The last 3 are automatically deduced to be strings. You may get undesired results if all variables can't be deduced.
+All of the above are valid ways to declare a variable. The type of the first variable `mystring` is not yet known, we can say it the type `'unknown`.
 
 ---
 number examples:
@@ -383,11 +385,29 @@ number examples:
 (@l mynum1) 
 (@l mynum2 0)
 (@l mynum3 0.0)
-(@l mynum4 -500)
+(@l mynum4 'float -500)
 ```
 
-All of the above are valid ways to declare a number. All numbers by default are 64 bit floating point. 
+All of the above are valid ways to declare a number. All numbers without a specific type will be 64 bit floating point. 
 It is possible to use other types of numbers, see [Language Specification Strong and Static](#language-specification-strong-and-static)
+
+**Runtime Behavior**
+
+Now that you know strings and numbers, what would happen if you had a function like `add` that expected two numbers, and a string was passed in. like this.
+
+```
+(@f add (x y)
+  (%+ x y))
+
+(@l mystring "72")
+(@l mynum 22)
+```
+
+`mynum` is a primative type. It is a 64 bit floating point type. `mystring` is a string where each character is 1 byte. Each character takes up more space than a digit would to account for all alphanumeric numbers.
+
+ In javascript, `"72" + 22` evaluates to "7222". This may or may not be intended by the developer. Instead of choosing the default behavior that javascipt has for types, the default implementation will work more with the `c standard`.
+
+`disc` treats all types as their binary representatives. It was decided to follow the `c` standard and every character directly maps to the ascii table, that is defined by c. The function `atof` `ascii to float` is used to implicitly cast a string to a float. This would ultimately make both types a float, there is an overloaded set of parameters for the builtin `%+` that takes in two floats, and returns a float, so this function would yield `94`. `%+` also has an overload that takes two strings. This actually does return a string with concatenation, `(%+ "hello " "strings")` returns `"hello strings"`.   
 
 ---
 list examples:
@@ -400,6 +420,11 @@ list examples:
 ```
 
 All of the above are valid ways to declare a list. Lists do not need to be of the same type. `()` and `(@l mynum)` evaluate to nil.
+
+**Runtime Behavior**
+
+Now that we know about declaring a variable `@l`. We can briefly discuss a different type of declaration `@c`. This will be covered more in detail in the [Language Specification Weak and Dynamic](#language-specification-weak-and-dynamic)
+, but essentially it means `const` or constant in other languages. Once the value is set, it is impossible to change the value. But during runtime, the discrunner just treats `@c` as a normal defined variable. We allow some sort of static analysis if the developer does not want this behavior. You can learn more about each flag necessary to pass to the linter to disallow reassignment of const variables. Hopefully, this is now clear, that the goal of the runner, is to parse a valid program, then execute it as fast as possible. The behavior has a default pattern, if you want to enforce more type safety, this is the job for static analysis tools.
 
 ---
 #### Enums
@@ -457,6 +482,14 @@ $ discr ./enum-example.di ./print.di
 >(print-out myparam)
 'NORTH
 ```
+
+**Runtime Behavior**
+
+In the first example we declared a variable with the `'NORTH` value, If there were two different enums that had a `'NORTH` values in each, it would not be possible to know which one it was. The runner will evaluate to whichever definition the parser found first. It is best to be explicit `'Direction'NORTH`.
+
+Not every path could be provided to the `%match` builtin. In the [Language Specification Strong and Static](#language-specification-strong-and-static) you will see how this can be enforced to ensure pattern matching must complete every outcome. The runtime behavior is quite clear. If a pattern is not matched on, the return on match, will be `nil`.
+
+---
 #### Types
 You may use either of these declarations
 ```
@@ -477,7 +510,18 @@ Declaring a variable with a type is as easy as.
 (@l mycomputer2 'computer (:mouse "Gaming Mouse"))
 (@l mycomputer3 'computer ("Gaming Mouse" ["Default 1" "Default 2"]))
 ```
-You can use a type with its name. In a moment we will talk about the `print-out` and `add-monitor` functions.
+You can use a type with its name. Let's create a file called `computer.di`
+```
+(@t computer 
+  :mouse ""
+  :monitors ()
+  :speakers ())
+
+(@f add-monitor (comp monitor)
+ (comp :monitors (add (comp :monitors) monitor)))
+```
+
+In a moment we will talk about the `print-out` functions.
 ```
 $ discd repl ./computer.di ./print.di
 > (@l mycomp 'computer)
@@ -500,6 +544,35 @@ And finally, it is possible to provide `constructor args`
   :monitors monitors)
 ```
 This says that any instance of computer could be provided initial values, and to where they should be assigned.
+
+**Runtime Behavior**
+
+What were to happen if we were to pass some new type `'vehicle` to `add-monitor`? The runtime behavior here, is much like javascript, except there is no prototypal inheritance, either the property exists on the object or it does not. so lets say we have a new `'vehicle` type, and is defined as so in `vehicle.di`.
+```
+(@t vehicle
+  :wheels [])
+
+(@l myvehicle 'vehicle)
+```
+```
+$ discd repl ./vehicle.di ./computer.di ./print.di
+> (print-out (add-monitor myvehicle "Dashboard LED Screen"))
+('vehicle 
+  :wheels []
+  :monitors ["Dashboard LED Screen"])
+```
+Another behavior that needs to be considered is of unknown type or even a number, how would this work?
+```
+$ discd repl ./vehicle.di ./computer.di ./print.di
+> (@l mything)
+> (@l mynum 22)
+> (print-out (add-monitor mything "what?"))
+('unknown
+  :monitors ["what?"])
+> (print-out (add-monitor mynum "this is odd"))
+('unknown
+  :monitors [])
+```
 
 ---
 #### Interfaces and Generics
@@ -639,15 +712,16 @@ You can still declare variables the same way.
 ```
 (@l mystring1)
 ```
-However, this prevents a problem, what if we assign `mystring1` to a number. what if later we reassign `mystring1` to a string.
+However, this prevents a problem, what if we assign `mystring1` to a number. what if later we reassign `mystring1` to a string?
 
-With the `--static` flag passed to either the `linter` or `compiler` this is no longer possible. you will get an error.
+With the `--static` flag passed to either the `linter` or `compiler` this is no longer possible. you will get an error. If you recall the default behavior of the runner is to just execute, so there is no way to pass any of these flags. The default behavior of the linter and compiler is the same. Passing `--static` and `--strong` ensure the absolute maximum static analysis possible. It can be confusing which one enables what feature, the language itself right now is unclear as well. It is usually best to assume those two are synonymous and should be grouped together.
+
 Take for example this file `./mytest.di`
 ```
 (@l mystring1)
 ```
 ```
-$ discd linter ./mytest.di --static
+$ discd linter ./mytest.di --static --strong
 errors:
   ./mytest.di - (ln 0, p 13)		: type-not-deduced (d0)
 ```
@@ -660,7 +734,7 @@ Variables can also be marked as constant, once their initial value is assigned, 
 (mystring "Constant")
 ```
 ```
-$ discd compiler ./mytest.di --static
+$ discd compiler ./mytest.di --static --strong
 errors:
   ./mytest.di - (ln 1, p 10)		: const-reassignment (d2)
 ```
@@ -715,12 +789,12 @@ Enums with static typing, are required to solve for all possible inputs. You may
     'EAST myparam
     _ myparam 'EAST))
 ```
-This is a contrived example, at minimum it looks like it saves an unnecessary assignment if `myparam` happens to look east already, at the expense using a branch check.
+This is a contrived example, at minimum it looks like it saves an unnecessary assignment if `myparam` happens to be facing east already, at the expense using a branch check.
 The actual type of object that the enum `Direction` is, is a type that must evaluate to a different type. Meaning the longform value of `myparam` in the above example is.
 ```
 'Direction'EAST
 ```
-`'EAST` is also a type. We can use `'EAST` as a parameter to a function as well.?
+`'EAST` is also a type. We can use `'EAST` as a parameter to a function as well.
 ```
 (@f rotate-solar-panel 'EAST 'AFTERNOON (solarPanel sunLocation) ; <--- ::todo:: should it look something like this?
     (angle solarPanel 0))
