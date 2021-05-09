@@ -294,7 +294,7 @@ Every builtin has an evaluation. Builtins are specific implementations for the a
 ---
 #### Enums
 An enumeration is a [type](#types) which evaluates to a different type.
-You may use the declaration `@` [identifier](#identifiers)
+You define an enum with the declaration `@` [identifier](#identifiers)
 ```
 (@e Directions 
   'NORTH
@@ -312,8 +312,8 @@ Defining an enum.
 (@l current-direction1 'NORTH)
 (@l current-direction2 'Direction'NORTH)
 ```
-All enum evaluations must be used.
-You can use `%match` in order to match on enums.
+When executing code with enums, all possible outcomes must be defined.
+Here is an example using the [builtin](#builtins) `%match`.
 ```
 (@f turn-clockwise 'Direction (myparam)
   (%match myparam
@@ -329,6 +329,131 @@ See [Valid Syntax](#valid-syntax) for complete reference on valid enum syntax.
 
 ---
 #### Interfaces and Generics
+Interfaces describe contracts that a [type](#types) must implement in order for them to be used with a generic.
+You declare an interface with the declaration `@` [identifer](#identifiers)
+```
+(@i debug-it (param1)
+  :debug param1)
+
+(@i debug-it-strong 'string (param1)
+  :debug param1)
+```
+The first interface can take any type in the `constructor args` and ensures that they get assigned to the `:debug` property.
+The second interface specifies that this interface is strictly for `strings` in `:debug` property. See [Valid Syntax](#valid-syntax) for a complete reference on valid interface syntax. 
+
+`constructor args` is used loosely here, as there is never going to be an instance of the interface.
+Either of these declarations are valid:
+```
+@i
+@interface
+```
+In order to add an interface to a type, you must use the hook `,` [identifier](#identifiers) for specifying the contract must be implemented.
+```
+(@t computer ,debug-it
+  :mouse ""
+  :debug "It's a computer")
+```
+The `computer` type must implement the `:debug` property. 
+
+Now, you can make a generic function which will take the interface prefaced with the hook `,` identifier.
+```
+(@g print-out (,debug-it)
+  (printf :debug))
+```
+This generic function states that the first variable passed to `print-out` must implement the `debug-it` interface.
+You may use either of these declarations:
+```
+@generic
+@g
+```
+And finally, its usage.
+```
+$ discd repl ./computer.di ./print-out.di
+> (@l mycomp 'computer)
+> (print-out mycomp)
+It's a computer
+```
+These are a bit more complex, albeit powerful, so let's go over what is happening.
+
+First,
+we define an interface, you must declare any types it uses in its constructor.
+```
+(@i debug-it (o)
+  :debug o)
+```
+The above example requires any type, and will be referenced as `o`, and that type `o` is on the `:debug` property.
+```
+@t computer ,debug-it
+  :mouse ""
+  :debug "It's a computer")
+```
+The above is saying that in order to implement the `debug-it` interface, you must have a `property` called `:debug`. This example correctly implements the `debug-it` interface.
+
+```
+(@g print-out (,debug-it)
+  (printf :debug)) ; <-- :debug is just going to get replaced
+			  with "It's a computer".  
+```
+Instead of print-out receiving a string, or a list, we are saying, there will be a `property` called `:debug` you can just use whatever is evaluated in that.
+
+`printf` is one of the earliest functions in computing history. It is extremely complex internally, and lives on your system in some way or another. On linux or mac, you can enter this into your shell.
+```
+$ printf "hello\n"
+hello
+$
+```
+`printf` can also take in multiple arguments and format the input string with some evaluation.
+```
+$ printf "hello %s\n" "world"
+hello world
+$ 
+```
+So `printf` can take a list of strings. We can edit `debug-it` interface to represent this.
+```
+(@i debug-it 'string 'string (format input)  
+  :debug 'list [format input])
+
+(@g print-out (,debug-it)
+  (printf :debug))
+
+(@t computer ,debug-it
+  :mouse ""
+  :debug 'list ["mouse key is %s\n" :mouse])
+```
+types are special in that they have access to their `properties` anywhere within the declaration scope. This is why the list in `:debug` can access `:mouse`
+
+`printf` is robust. How do we ensure that we use printf as it is intended? Since you are in the `dynamic` and `weak` tutorial, we are going to let `printf` do the heavy lifting. Sure, you might accidentally use printf incorrectly, pass it 20 arguments? 30 arguments? Will it break? See the `strong` and `static` tutorial to learn about how to do all this safely.
+
+Here is the full look at generics and interfaces in action.
+```
+(@i debug-it (o)
+  :debug o)
+
+(@g print-out (,debug-it)
+  (printf :debug))
+
+(@t computer (,debug-it)
+  :mouse ""
+  :debug "It's a computer")
+
+(@t car ,debug-it
+  :make ""
+  :model ""
+  :debug ["car => :make %s and :model %s\n" :make :model])
+```
+printf is doing a bit of work here, as we are passing it a string in one instance, and a list in another.
+ 
+Here is the usage. `full-example` contains all the code from the previous code block.
+```
+$ discd repl ./full-example.di
+> (@l mycomp 'computer)
+> (print-out mycomp
+It's a computer
+> (@l mycar ('car :make "Ford" :model "RS200"))
+> (print-out mycar)
+car => :make Ford and :model RS200
+>
+```
 
 ---
 #### Yielded Types
