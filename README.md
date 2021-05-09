@@ -1,4 +1,36 @@
+# Contents
+- [About](#about)
+- [Introduction](#introduction)
+- [Installation](#installation)
+- [Beginners](#beginners)
+- [Language](#language)
+	- [Program and Scope](#program-and-scope)
+	- [Types](#types)
+	- [Properties](#properties)
+	- [Variables](#variables)
+	- [Functions](#functions)
+	- [Identifiers](#identifiers)
+	- [Builtins](#builtins)
+	- [Interfaces and Generics](#interfaces-and-generics)
+	- [Enums](#enums)
+	- [Yielded Types](#enums)
+	- [Assembly](#assembly)
+- [Tutorials](#tutorials)
+	- [My First Project](#my-first-project)
+  - [Interfaces](#interfaces-tutorial)
+- [Projects](#projects)
+- [Embedded](#embedded)
+	- [Script Based](#script-based)
+	- [Linux Based](#linux-based)
+	- [Freestanding](#freestanding)
+- [Minifier](#minifier)
+- [Linter](#linter)
+- [Compiler](#compiler)
+- [Library](#library)
+
+---
 # About
+
 The DISC language is a lisp adjacent language. The language itself has many features that most developers are accustomed to in the modern era, as well as several new ones.
 This project has goals that will ensure success and adoption of the language. The goals are...
 
@@ -7,6 +39,7 @@ This project has goals that will ensure success and adoption of the language. Th
 - **Provide the best embedded support**. Embedded systems require demanding performance use of their hardware. Supporting embedded systems will force the tooling, to be as efficient as possible. Thus, further helping the second goal.
 - **Documentation is key**. Making documentation another high priority, will ensure that any newcomers to the language get the most up to date features,knowledge, and tutorials for easy use.
 - **Make it easy to use**. The first class tooling, the documentation, and clear goals will make this tool and language easy to use.
+
 ---
 What does disc stand for?
 
@@ -26,30 +59,588 @@ One side cares strictly about the correctness of the code, and has no issues enf
 
 While the other side, has no problems with implicit casts, doesn't type check and allows you to run code. When working with javascript, I find its lack of typing nice at times when I just want to see the code run, inspect breakboints, variables in memory, etc. 
 
-But, we also can't forgo the safety our programs receive in strongly typed systems. Rust has certainly taken the community by storm. This project will be no exception, there are plans to make the compiler type checking as strong as rusts type system if the features are turned on.
-#
+We also can't forgo the safety our programs receive in strongly typed systems. Rust has certainly taken the community by storm. Disc offers many of the same features, and has more powerful type handling as you will see.
 
-**Disclaimer**
+---
+# Introduction
 
-The rest of these sections are just to give the reader an understanding on what the expected language and tools should look and interact.
 
+---
 # Installation 
-::todo::
 
+---
+# Beginners
+
+---
+# Language
+
+### Program and Scope
+A valid program is a program which syntax can be parsed by the `runner` `minifier` `linter` and `compiler`.
+Every open parenthesis `(` must have a closing parenthesis `)`.
+This will be referred to as a scope. Every `()` is a scope. A file is an implicit scope.
+Every scope must have an evaluation. This can be achieved many ways.
+
+- A declaration `@`
+- A builtin `%`
+- Another scope `()`
+- Evaluation of a valid expression
+
+examples of valid programs. Each line a separate program
+```
+() ; evaluates to nil
+(()) ; nil evaluates to nil
+(%+ 5 5) ; evaluates to 10
+("valid") ; evaluates to "valid"
+(@l myvar "valid") ; sets a variable on the parent scope, and evaluates to nil
+```
+examples of invalid programs.
+```
+( ; unexpected opening scope
+()) ; unexpected closing scope
+(,anything) ; unexpected identifier ,
+```
+
+### Types
+Everything that is evaluated has a type. Types are defined using the declaration `@` [identifier](#identifiers)
+```
+@t
+@type
+```
+Types are referenced by the type indication `'` [identifier](#identifiers).
+
+Type definition.
+```
+(@t computer 
+  :mouse "")
+```
+`:mouse` is a [property](#properties).
+Declaring a variable with a type is as easy as.
+```
+(@l mycomputer1 'computer)
+(@l mycomputer2 'computer (:mouse "Gaming Mouse"))
+(@l mycomputer3 'computer ("Gaming Mouse" ["Default 1" "Default 2"]))
+```
+You can use a type with its name. Let's create a file called `computer.di`
+```
+(@t computer 
+  :mouse ""
+  :monitors ()
+  :speakers ())
+
+(@f add-monitor (comp monitor)
+ (comp :monitors (add (comp :monitors) monitor)))
+```
+
+In a moment we will talk about the `print-out` functions.
+```
+$ discd repl ./computer.di ./print.di
+> (@l mycomp 'computer)
+> (print-out mycomp)
+('computer 
+  :mouse ""
+  :monitors ()
+  :speakers ())
+> (print-out (add-monitor mycomp "Generic 720p Monitor"))
+('computer
+  :mouse ""
+  :monitors ["Generic 720p Monitor"])
+  :speakers "")
+```
+In this example the add-monitor function returns the same instance of the computer to the caller `print-out` which pretty prints the type to stdout.
+And finally, it is possible to provide `constructor args`
+```
+(@t computer 'string 'list (mouse monitors)
+  :mouse mouse
+  :monitors monitors)
+```
+This says that any instance of computer could be provided initial values, and to where they should be assigned.
+
+**Runtime Behavior**
+
+What were to happen if we were to pass some new type `'vehicle` to `add-monitor`? The runtime behavior here, is much like javascript, except there is no prototypal inheritance, either the property exists on the object or it does not. so lets say we have a new `'vehicle` type, and is defined as so in `vehicle.di`.
+```
+(@t vehicle
+  :wheels [])
+
+(@l myvehicle 'vehicle)
+```
+```
+$ discd repl ./vehicle.di ./computer.di ./print.di
+> (print-out (add-monitor myvehicle "Dashboard LED Screen"))
+('vehicle 
+  :wheels []
+  :monitors ["Dashboard LED Screen"])
+```
+Another behavior that needs to be considered is of unknown type or even a number, how would this work?
+```
+$ discd repl ./vehicle.di ./computer.di ./print.di
+> (@l mything)
+> (@l mynum 22)
+> (print-out (add-monitor mything "what?"))
+('unknown
+  :monitors ["what?"])
+> (print-out (add-monitor mynum "this is odd"))
+('unknown
+  :monitors [])
+```
+#### Properties
+
+
+
+#### Identifiers
+
+In order for parsing of a script to execute faster, there are special characters that can't be used anywhere else. Many of them are reserved for future use, or are used internally to the compiler, parser, or minifier. They are prepended to text.
+```
+@ # $ % & * ; :  , ... . () ' " ? / | _
+```
+`@` - used for defining/declaring.
+
+`;` - used for comments, everything up until the next line is immediately ignored. multi-line comments are up to your ide tooling to insert ; on every line to be commented
+
+`#` - used for preprocessor commands.
+
+`()` - scoping block. A file is an implicit scope block.
+
+`:` - indicates properties on a type.
+
+`,` - hook identifier. Used for implementing interfaces.
+
+`%` - builtin identifier. These are functions that are embedded in the language.
+
+`'` - type indication identifier.
+
+`$` - reflection identifier.
+
+`...` - variadic identifer.
+
+`_` - rest identifier. used in casematching to catch the remaining possibilities.
+
+`& * ? / | .` - are reserved for now.
+
+---
+#### Functions
+You define functions as follows:
+```
+(@f add (x y)
+  (%+ x y)) 
+```
+You may use either of these declarations.
+```
+@f
+@fn
+@function
+@func
+```
+You can use a function with the name of the function. `myadd` file contains the previous function definition.
+```
+$ discd repl ./myadd.di
+> (add 33 9)
+42
+```
+Note: You can read the [Builtin](#builtin) section to understand why `+` was prepended with `%`.
+
+---
+#### Builtin
+
+Some functions are built into the language. Here is a list of all.
+```
+%ffi - used for calling functions local to the Operating System.
+%thread - used for creating and working with threads.
+%proc - reserved.
+%do - used for serially executing functions.
+%if - used for conditionallity executing one of two blocks of code.
+%ifelif - used for conditionallity executing several blocks of code.
+%while - loops while a condition is true.
+%1while - executes the block of code at least once even if condition is false.
+%loop - executes consuming an implicit iterator.
+%lambda - allows for a function to be projected onto its parameters.
+%box - special function which puts the type or function on the heap and returns the boxed object.
+%+ - addition.
+%- - subtraction.
+%% - modulo.
+%/ - divide.
+%* - multiplication.
+%< - less than.
+%> - greater than.
+%| - or.
+%& - and.
+%[ - shift left.
+%] - shift right.
+%~ - not.
+%^ - xor.
+%! - falsey. works the same as `not` on bits, but handles nil for types.
+%= - equality. same as xor on bits, but handles nil for types.
+```
+including builtins allows us to quickly parse these commonly used functions, knowing immediately that an enclosing scope is a builtin, allows us to parse and build into an AST quickly.
+
+---
+#### Variables
+You define variables using as follows:
+```
+(@l myvar) 
+```
+You may use either of these declarations.
+```
+@l
+@let
+```
+---
+string examples:
+``` 
+(@l mystring)
+(@l mystring2 "")
+(@l mystring3 "this is a string.")
+(@l mystring4 'string "strongly typed string")
+```
+
+All of the above are valid ways to declare a variable. The type of the first variable `mystring` is not yet known, we can say it the type `'unknown`.
+
+---
+number examples:
+```
+(@l mynum1) 
+(@l mynum2 0)
+(@l mynum3 0.0)
+(@l mynum4 'float -500)
+```
+
+All of the above are valid ways to declare a number. All numbers without a specific type will be 64 bit floating point. 
+It is possible to use other types of numbers, see [Language Specification Strong and Static](#language-specification-strong-and-static)
+
+**Runtime Behavior**
+
+Now that you know strings and numbers, what would happen if you had a function like `add` that expected two numbers, and a string was passed in. like this.
+
+```
+(@f add (x y)
+  (%+ x y))
+
+(@l mystring "72")
+(@l mynum 22)
+```
+
+`mynum` is a primative type. It is a 64 bit floating point type. `mystring` is a string where each character is 1 byte. Each character takes up more space than a digit would to account for all alphanumeric numbers.
+
+ In javascript, `"72" + 22` evaluates to "7222". This may or may not be intended by the developer. Instead of choosing the default behavior that javascipt has for types, the default implementation will work more with the `c standard`.
+
+`disc` treats all types as their binary representatives. It was decided to follow the `c` standard and every character directly maps to the ascii table, that is defined by c. The function `atof` `ascii to float` is used to implicitly cast a string to a float. This would ultimately make both types a float, there is an overloaded set of parameters for the builtin `%+` that takes in two floats, and returns a float, so this function would yield `94`. `%+` also has an overload that takes two strings. This actually does return a string with concatenation, `(%+ "hello " "strings")` returns `"hello strings"`.   
+
+---
+list examples:
+```
+(@l mylist1)	; <-- nil
+(@l mylist2 ()) ; <-- nil
+(@l mylist3 [1 2 3])
+(@l mylist4 'list ["hello" "there"])
+(@l mylist5 ["general" 1 2 3])
+```
+
+All of the above are valid ways to declare a list. Lists do not need to be of the same type. `()` and `(@l mynum)` evaluate to nil.
+
+**Runtime Behavior**
+
+Now that we know about declaring a variable `@l`. We can briefly discuss a different type of declaration `@c`. This will be covered more in detail in the [Language Specification Weak and Dynamic](#language-specification-weak-and-dynamic)
+, but essentially it means `const` or constant in other languages. Once the value is set, it is impossible to change the value. But during runtime, the discrunner just treats `@c` as a normal defined variable. We allow some sort of static analysis if the developer does not want this behavior. You can learn more about each flag necessary to pass to the linter to disallow reassignment of const variables. Hopefully, this is now clear, that the goal of the runner, is to parse a valid program, then execute it as fast as possible. The behavior has a default pattern, if you want to enforce more type safety, this is the job for static analysis tools.
+
+---
+#### Enums
+
+You may use either of these declarations
+```
+@e
+@enum
+```
+Here is how to define an enum
+```
+(@e Directions 
+  'NORTH
+  'SOUTH
+  'EAST
+  'WEST)
+```
+Defining an enum is as easy as.
+```
+(@l current-direction 'NORTH)
+```
+You can use `%match` in order to match on enums.
+```
+(@f turn-clockwise 'Direction (myparam)
+  (%match myparam
+    'NORTH myparam 'EAST 
+    'SOUTH myparam 'WEST
+    'EAST myparam 'SOUTH
+    'WEST myparam 'NORTH))
+```
+And its usage. Let's assume the enum definition, the variable current-direction is declared, and the function is declared in `enum-example.di`
+```
+$ discr ./enum-example.di ./print.di
+>(print-out (turn-clockwise current-direction))
+'EAST
+>(print-out myparam)
+'EAST
+```
+Notice how in this example `myparam` was assigned the value, and then `myparam` was an implicit return to the caller.
+Similarly, you could have the function declared as so,
+```
+(@f look-right 'Direction (myparam)
+  (%match myparam
+    'NORTH 'EAST 
+    'SOUTH 'WEST
+    'EAST 'SOUTH
+    'WEST 'NORTH))
+```
+This will not change the value of myparam.
+Its usage.
+```
+$ discr ./enum-example.di ./print.di
+>(print-out (look-right current-direction))
+'EAST
+>(print-out myparam)
+'NORTH
+```
+
+**Runtime Behavior**
+
+In the first example we declared a variable with the `'NORTH` value, If there were two different enums that had a `'NORTH` values in each, it would not be possible to know which one it was. The runner will evaluate to whichever definition the parser found first. It is best to be explicit `'Direction'NORTH`.
+
+Not every path could be provided to the `%match` builtin. In the [Language Specification Strong and Static](#language-specification-strong-and-static) you will see how this can be enforced to ensure pattern matching must complete every outcome. The runtime behavior is quite clear. If a pattern is not matched on, the return on match, will be `nil`.
+
+---
+#### Types
+You may use either of these declarations
+```
+@t
+@type
+```
+Here is how to define a type
+```
+(@t computer 
+  :mouse ""
+  :monitors ()
+  :speakers ())
+```
+Type definitions stray from normal list syntax a little bit. In the above example, `:mouse` is a string much like how we use the `@l mystring ""` syntax. `:monitors` and `:speakers` evaluate to `nil`
+Declaring a variable with a type is as easy as.
+```
+(@l mycomputer1 'computer)
+(@l mycomputer2 'computer (:mouse "Gaming Mouse"))
+(@l mycomputer3 'computer ("Gaming Mouse" ["Default 1" "Default 2"]))
+```
+You can use a type with its name. Let's create a file called `computer.di`
+```
+(@t computer 
+  :mouse ""
+  :monitors ()
+  :speakers ())
+
+(@f add-monitor (comp monitor)
+ (comp :monitors (add (comp :monitors) monitor)))
+```
+
+In a moment we will talk about the `print-out` functions.
+```
+$ discd repl ./computer.di ./print.di
+> (@l mycomp 'computer)
+> (print-out mycomp)
+('computer 
+  :mouse ""
+  :monitors ()
+  :speakers ())
+> (print-out (add-monitor mycomp "Generic 720p Monitor"))
+('computer
+  :mouse ""
+  :monitors ["Generic 720p Monitor"])
+  :speakers "")
+```
+In this example the add-monitor function returns the same instance of the computer to the caller `print-out` which pretty prints the type to stdout.
+And finally, it is possible to provide `constructor args`
+```
+(@t computer 'string 'list (mouse monitors)
+  :mouse mouse
+  :monitors monitors)
+```
+This says that any instance of computer could be provided initial values, and to where they should be assigned.
+
+**Runtime Behavior**
+
+What were to happen if we were to pass some new type `'vehicle` to `add-monitor`? The runtime behavior here, is much like javascript, except there is no prototypal inheritance, either the property exists on the object or it does not. so lets say we have a new `'vehicle` type, and is defined as so in `vehicle.di`.
+```
+(@t vehicle
+  :wheels [])
+
+(@l myvehicle 'vehicle)
+```
+```
+$ discd repl ./vehicle.di ./computer.di ./print.di
+> (print-out (add-monitor myvehicle "Dashboard LED Screen"))
+('vehicle 
+  :wheels []
+  :monitors ["Dashboard LED Screen"])
+```
+Another behavior that needs to be considered is of unknown type or even a number, how would this work?
+```
+$ discd repl ./vehicle.di ./computer.di ./print.di
+> (@l mything)
+> (@l mynum 22)
+> (print-out (add-monitor mything "what?"))
+('unknown
+  :monitors ["what?"])
+> (print-out (add-monitor mynum "this is odd"))
+('unknown
+  :monitors [])
+```
+
+---
+#### Interfaces and Generics
+You can define an interface as follows:
+```
+(@i debug-it (param1)
+  :debug param1)
+
+(@i debug-it-strong 'string (param1)
+  :debug param1)
+```
+The first interface can take any type in the `constructor args` and ensures that they get assigned to the `:debug` property.
+The second interface declares that this interface is strictly for `strings` in `:debug` property.
+
+`constructor args` is used loosely here, as there is never going to be an instance of the interface.
+You may also use either of these declarations:
+```
+@i
+@interface
+```
+In order to add an interface to a type, you must use the identifier `,` for `hooking` in the requirement
+```
+(@t computer ,debug-it
+  :mouse ""
+  :debug "It's a computer")
+```
+Notice how `,debug-it` is not in its `constructor args`. That is because, there is no variable being passed into `computer`. This is just a contract, that the `computer` type should implement the `:debug` property.
+
+Now, you can make a generic function which will take the interface prefaced with the hook `,` identifier.
+```
+(@g print-out (,debug-it)
+  (printf :debug))
+```
+This generic function states that the first variable passed to `print-out` must implement the `debug-it` interface.
+You may use either of these declarations:
+```
+@generic
+@g
+```
+And finally, its usage.
+```
+$ discd repl ./computer.di ./print-out.di
+> (@l mycomp 'computer)
+> (print-out mycomp)
+It's a computer
+```
+These are a bit more complex, albeit powerful, so let's go over what is happening.
+
+First,
+we define an interface, you must declare any types it uses in its constructor.
+```
+(@i debug-it (o)
+  :debug o)
+```
+The above example requires any type, and will be referenced as `o`, and that type `o` is on the `:debug` property.
+```
+@t computer ,debug-it
+  :mouse ""
+  :debug "It's a computer")
+```
+The above is saying that in order to implement the `debug-it` interface, you must have a `property` called `:debug`. This example correctly implements the `debug-it` interface.
+
+```
+(@g print-out (,debug-it)
+  (printf :debug)) ; <-- :debug is just going to get replaced
+			  with "It's a computer".  
+```
+Instead of print-out receiving a string, or a list, we are saying, there will be a `property` called `:debug` you can just use whatever is evaluated in that.
+
+`printf` is one of the earliest functions in computing history. It is extremely complex internally, and lives on your system in some way or another. On linux or mac, you can enter this into your shell.
+```
+$ printf "hello\n"
+hello
+$
+```
+`printf` can also take in multiple arguments and format the input string with some evaluation.
+```
+$ printf "hello %s\n" "world"
+hello world
+$ 
+```
+So `printf` can take a list of strings. We can edit `debug-it` interface to represent this.
+```
+(@i debug-it 'string 'string (format input)  
+  :debug 'list [format input])
+
+(@g print-out (,debug-it)
+  (printf :debug))
+
+(@t computer ,debug-it
+  :mouse ""
+  :debug 'list ["mouse key is %s\n" :mouse])
+```
+types are special in that they have access to their `properties` anywhere within the declaration scope. This is why the list in `:debug` can access `:mouse`
+
+`printf` is robust. How do we ensure that we use printf as it is intended? Since you are in the `dynamic` and `weak` tutorial, we are going to let `printf` do the heavy lifting. Sure, you might accidentally use printf incorrectly, pass it 20 arguments? 30 arguments? Will it break? See the `strong` and `static` tutorial to learn about how to do all this safely.
+
+Here is the full look at generics and interfaces in action.
+```
+(@i debug-it (o)
+  :debug o)
+
+(@g print-out (,debug-it)
+  (printf :debug))
+
+(@t computer (,debug-it)
+  :mouse ""
+  :debug "It's a computer")
+
+(@t car ,debug-it
+  :make ""
+  :model ""
+  :debug ["car => :make %s and :model %s\n" :make :model])
+```
+printf is doing a bit of work here, as we are passing it a string in one instance, and a list in another.
+ 
+Here is the usage. `full-example` contains all the code from the previous code block.
+```
+$ discd repl ./full-example.di
+> (@l mycomp 'computer)
+> (print-out mycomp
+It's a computer
+> (@l mycar ('car :make "Ford" :model "RS200"))
+> (print-out mycar)
+car => :make Ford and :model RS200
+>
+```
+
+---
 # Tutorials
-- [Prerequisites](#prerequisites)
-- [Tooling Mindset](#tooling-mindset)
-- [First Project](#first-project)
-- [Compilation](#compilation)
-- [Embedded Project](#embedded-project)
-- [Language Specification (Weak and Dynamic)](#language-specification-weak-and-dynamic)
-- [Language Specification (Strong and Static)](#language-specification-strong-and-static)
 
-# Prerequisites
-- You have downloaded and installed `discr`.
-- You have downloaded and installed `discd`.
+---
+# Projects
 
-### Tooling Mindset
+---
+# Embedded
+
+---
+# Minifier
+
+---
+# Linter
+
+---
+# Compiler
+
+---
+# Library
+
+---
+
+## Tooling Mindset
 The `discr` or "disc runner" is the absolute minimum required cli necessary in order to run scripts. No repl, no validators, nothing. The way your operating system runs programs will explain why this decision was made to separate the runner. First, the OS must load the program into memory, and then it begins executing the `main` method. Anytime you run a script for disc, python, or any cli the first thing the operating system must do, is load the program itself into memory. The larger this binary is, the longer it takes before it can execute any actual code at all! 
 
 Making `discr` as small as possible ensures the fastest execution possible.
@@ -172,7 +763,6 @@ Success! parsed html for { google.com, twitch.tv}
 ```
 
 ### Compilation
-::todo::
 
 ---
 ### Embedded Project
