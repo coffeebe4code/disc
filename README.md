@@ -11,13 +11,16 @@
 	- [Functions](#functions)
 	- [Identifiers](#identifiers)
 	- [Builtins](#builtins)
-	- [Interfaces and Generics](#interfaces-and-generics)
 	- [Enums](#enums)
+	- [Interfaces and Generics](#interfaces-and-generics)
 	- [Yielded Types](#enums)
 	- [Assembly](#assembly)
+	- [Types List](#types-list)
+	- [Builtins List](#builtins-list)
 - [Tutorials](#tutorials)
 	- [My First Project](#my-first-project)
   - [Interfaces](#interfaces-tutorial)
+- [Default Behavior](#default-behavior)
 - [Projects](#projects)
 - [Embedded](#embedded)
 	- [Script Based](#script-based)
@@ -74,7 +77,7 @@ We also can't forgo the safety our programs receive in strongly typed systems. R
 ---
 # Language
 
-### Program and Scope
+#### Program and Scope
 A valid program is a program which syntax can be parsed by the `runner` `minifier` `linter` and `compiler`.
 Every open parenthesis `(` must have a closing parenthesis `)`.
 This will be referred to as a scope. Every `()` is a scope. A file is an implicit scope.
@@ -91,7 +94,7 @@ examples of valid programs. Each line a separate program
 (()) ; nil evaluates to nil
 (%+ 5 5) ; evaluates to 10
 ("valid") ; evaluates to "valid"
-(@l myvar "valid") ; sets a variable on the parent scope, and evaluates to nil
+(@l myvar "valid") ; sets a variable on the owned scope, and evaluates to nil
 ```
 examples of invalid programs.
 ```
@@ -99,7 +102,9 @@ examples of invalid programs.
 ()) ; unexpected closing scope
 (,anything) ; unexpected identifier ,
 ```
+Some scopes are owned scopes. Owned scopes maintain state. [types](#types), [functions](#functions), [generics](#interfaces-and-generics), and files are an owned scope.
 
+---
 ### Types
 Everything that is evaluated has a type. Types are defined using the declaration `@` [identifier](#identifiers)
 ```
@@ -114,82 +119,92 @@ Type definition.
   :mouse "")
 ```
 `:mouse` is a [property](#properties).
-Declaring a variable with a type is as easy as.
+
+Types can also have `constructor arguments`.
+```
+(@t computer (mouseName)
+  :mouse mouseName)
+```
+You can strongly type constructor arguments and properties.
+```
+(@t computer 'string (mouseName)
+  :mouse 'string mouseName)
+```
+Types can also have no properties, these are `type definitions`.
+```
+(@t special-string 'string)
+```
+
+Declaring a [variable](#variables).
 ```
 (@l mycomputer1 'computer)
 (@l mycomputer2 'computer (:mouse "Gaming Mouse"))
-(@l mycomputer3 'computer ("Gaming Mouse" ["Default 1" "Default 2"]))
-```
-You can use a type with its name. Let's create a file called `computer.di`
-```
-(@t computer 
-  :mouse ""
-  :monitors ()
-  :speakers ())
-
-(@f add-monitor (comp monitor)
- (comp :monitors (add (comp :monitors) monitor)))
 ```
 
-In a moment we will talk about the `print-out` functions.
-```
-$ discd repl ./computer.di ./print.di
-> (@l mycomp 'computer)
-> (print-out mycomp)
-('computer 
-  :mouse ""
-  :monitors ()
-  :speakers ())
-> (print-out (add-monitor mycomp "Generic 720p Monitor"))
-('computer
-  :mouse ""
-  :monitors ["Generic 720p Monitor"])
-  :speakers "")
-```
-In this example the add-monitor function returns the same instance of the computer to the caller `print-out` which pretty prints the type to stdout.
-And finally, it is possible to provide `constructor args`
-```
-(@t computer 'string 'list (mouse monitors)
-  :mouse mouse
-  :monitors monitors)
-```
-This says that any instance of computer could be provided initial values, and to where they should be assigned.
+For a complete list of types in the language see [types list](#types-list)
 
-**Runtime Behavior**
+#### Variables
+Variables are state that is stored on the owned [scope](#program-and-scope). Variables are defined using the declaration `@` [identifiers](#identifiers)
+```
+(@l myvar) 
+```
+You may use either of these declarations.
+```
+@l
+@let
+```
+---
+string examples:
+``` 
+(@l mystring1 "")
+(@l mystring2 "this is a string.")
+(@l mystring3 'string "strongly typed string")
+```
 
-What were to happen if we were to pass some new type `'vehicle` to `add-monitor`? The runtime behavior here, is much like javascript, except there is no prototypal inheritance, either the property exists on the object or it does not. so lets say we have a new `'vehicle` type, and is defined as so in `vehicle.di`.
+---
+number examples:
 ```
-(@t vehicle
-  :wheels [])
+(@l mynum1 0)
+(@l mynum2 0.0)
+(@l mynum3 'sint -500) ; signed integer
+```
 
-(@l myvehicle 'vehicle)
+All of the above are valid ways to declare a number. All numbers without a specific type will be 64 bit floating point. 
+It is possible to use other types of numbers, see the complete [types list](#types-list)
+
+---
+list examples:
 ```
+(@l mylist1 [])
+(@l mylist3 [1 2 3])
+(@l mylist4 'list ["my" "list" "four"])
+(@l mylist5 ["my" "list" 5])
 ```
-$ discd repl ./vehicle.di ./computer.di ./print.di
-> (print-out (add-monitor myvehicle "Dashboard LED Screen"))
-('vehicle 
-  :wheels []
-  :monitors ["Dashboard LED Screen"])
+
+---
+nil examples:
 ```
-Another behavior that needs to be considered is of unknown type or even a number, how would this work?
-```
-$ discd repl ./vehicle.di ./computer.di ./print.di
-> (@l mything)
-> (@l mynum 22)
-> (print-out (add-monitor mything "what?"))
-('unknown
-  :monitors ["what?"])
-> (print-out (add-monitor mynum "this is odd"))
-('unknown
-  :monitors [])
-```
+(@l myvar1)
+(@l myvar2 ())
+(@l myvar3 'nil)
+(@l myvar4 'nil (()))
+``` 
+nil is both a type, and an evaluation. The first example is of type any. As it could later be assigned. The evaluation of an unassigned variable is nil.
+See [Default Behavior](#default-behavior) to understand how this execution could impact your project.
+
+---
 #### Properties
+Properties exist only on [types](#types). Since types are an owned [scope](#program-and-scopes), properties can access other properties in the same type.
+```
+(@t computer ()
+  :monitors []
+  :gpus []
+  :peripheral-count (count (add :monitors :gpus)))
+```
 
-
-
+---
 #### Identifiers
-
-In order for parsing of a script to execute faster, there are special characters that can't be used anywhere else. Many of them are reserved for future use, or are used internally to the compiler, parser, or minifier. They are prepended to text.
+Identifiers are prepended to text. They have special meaning which can quickly inform the `parser` `linter` `compiler` what to expect next.
 ```
 @ # $ % & * ; :  , ... . () ' " ? / | _
 ```
@@ -213,13 +228,13 @@ In order for parsing of a script to execute faster, there are special characters
 
 `...` - variadic identifer.
 
-`_` - rest identifier. used in casematching to catch the remaining possibilities.
+`_` - rest identifier. Used in case matching 
 
 `& * ? / | .` - are reserved for now.
 
 ---
 #### Functions
-You define functions as follows:
+Functions have their own [scope](#program-and-scope). They are declared with the declaration `@` [identifier](#identifiers)
 ```
 (@f add (x y)
   (%+ x y)) 
@@ -231,30 +246,25 @@ You may use either of these declarations.
 @function
 @func
 ```
-You can use a function with the name of the function. `myadd` file contains the previous function definition.
-```
-$ discd repl ./myadd.di
-> (add 33 9)
-42
-```
-Note: You can read the [Builtin](#builtin) section to understand why `+` was prepended with `%`.
+Functions are used to manipulate [types](#types).
+A function is valid if it evaluates to any type.
+Functions are evaluated in this context `(operator operand operand)`
 
 ---
-#### Builtin
+#### Builtins
 
 Some functions are built into the language. Here is a list of all.
 ```
 %ffi - used for calling functions local to the Operating System.
 %thread - used for creating and working with threads.
-%proc - reserved.
+%proc - used for creating a process.
 %do - used for serially executing functions.
-%if - used for conditionallity executing one of two blocks of code.
-%ifelif - used for conditionallity executing several blocks of code.
+%if - used for conditionallity executing one of several blocks of code.
 %while - loops while a condition is true.
 %1while - executes the block of code at least once even if condition is false.
 %loop - executes consuming an implicit iterator.
-%lambda - allows for a function to be projected onto its parameters.
-%box - special function which puts the type or function on the heap and returns the boxed object.
+%arrow- allows for a function to be projected onto its parameters.
+%main - special function which tells the program where to start
 %+ - addition.
 %- - subtraction.
 %% - modulo.
@@ -271,86 +281,12 @@ Some functions are built into the language. Here is a list of all.
 %! - falsey. works the same as `not` on bits, but handles nil for types.
 %= - equality. same as xor on bits, but handles nil for types.
 ```
-including builtins allows us to quickly parse these commonly used functions, knowing immediately that an enclosing scope is a builtin, allows us to parse and build into an AST quickly.
-
----
-#### Variables
-You define variables using as follows:
-```
-(@l myvar) 
-```
-You may use either of these declarations.
-```
-@l
-@let
-```
----
-string examples:
-``` 
-(@l mystring)
-(@l mystring2 "")
-(@l mystring3 "this is a string.")
-(@l mystring4 'string "strongly typed string")
-```
-
-All of the above are valid ways to declare a variable. The type of the first variable `mystring` is not yet known, we can say it the type `'unknown`.
-
----
-number examples:
-```
-(@l mynum1) 
-(@l mynum2 0)
-(@l mynum3 0.0)
-(@l mynum4 'float -500)
-```
-
-All of the above are valid ways to declare a number. All numbers without a specific type will be 64 bit floating point. 
-It is possible to use other types of numbers, see [Language Specification Strong and Static](#language-specification-strong-and-static)
-
-**Runtime Behavior**
-
-Now that you know strings and numbers, what would happen if you had a function like `add` that expected two numbers, and a string was passed in. like this.
-
-```
-(@f add (x y)
-  (%+ x y))
-
-(@l mystring "72")
-(@l mynum 22)
-```
-
-`mynum` is a primative type. It is a 64 bit floating point type. `mystring` is a string where each character is 1 byte. Each character takes up more space than a digit would to account for all alphanumeric numbers.
-
- In javascript, `"72" + 22` evaluates to "7222". This may or may not be intended by the developer. Instead of choosing the default behavior that javascipt has for types, the default implementation will work more with the `c standard`.
-
-`disc` treats all types as their binary representatives. It was decided to follow the `c` standard and every character directly maps to the ascii table, that is defined by c. The function `atof` `ascii to float` is used to implicitly cast a string to a float. This would ultimately make both types a float, there is an overloaded set of parameters for the builtin `%+` that takes in two floats, and returns a float, so this function would yield `94`. `%+` also has an overload that takes two strings. This actually does return a string with concatenation, `(%+ "hello " "strings")` returns `"hello strings"`.   
-
----
-list examples:
-```
-(@l mylist1)	; <-- nil
-(@l mylist2 ()) ; <-- nil
-(@l mylist3 [1 2 3])
-(@l mylist4 'list ["hello" "there"])
-(@l mylist5 ["general" 1 2 3])
-```
-
-All of the above are valid ways to declare a list. Lists do not need to be of the same type. `()` and `(@l mynum)` evaluate to nil.
-
-**Runtime Behavior**
-
-Now that we know about declaring a variable `@l`. We can briefly discuss a different type of declaration `@c`. This will be covered more in detail in the [Language Specification Weak and Dynamic](#language-specification-weak-and-dynamic)
-, but essentially it means `const` or constant in other languages. Once the value is set, it is impossible to change the value. But during runtime, the discrunner just treats `@c` as a normal defined variable. We allow some sort of static analysis if the developer does not want this behavior. You can learn more about each flag necessary to pass to the linter to disallow reassignment of const variables. Hopefully, this is now clear, that the goal of the runner, is to parse a valid program, then execute it as fast as possible. The behavior has a default pattern, if you want to enforce more type safety, this is the job for static analysis tools.
+Every builtin has an evaluation. Builtins are specific implementations for the arch and OS, but are guaranteed to behave the same way on any of the supported.
 
 ---
 #### Enums
-
-You may use either of these declarations
-```
-@e
-@enum
-```
-Here is how to define an enum
+An enumeration is a [type](#types) which evaluates to a different type.
+You may use the declaration `@` [identifier](#identifiers)
 ```
 (@e Directions 
   'NORTH
@@ -358,10 +294,17 @@ Here is how to define an enum
   'EAST
   'WEST)
 ```
-Defining an enum is as easy as.
+Any of these declarations are valid.
 ```
-(@l current-direction 'NORTH)
+@e
+@enum
 ```
+Defining an enum.
+```
+(@l current-direction1 'NORTH)
+(@l current-direction2 'Direction'NORTH)
+```
+All enum evaluations must be used.
 You can use `%match` in order to match on enums.
 ```
 (@f turn-clockwise 'Direction (myparam)
@@ -371,124 +314,7 @@ You can use `%match` in order to match on enums.
     'EAST myparam 'SOUTH
     'WEST myparam 'NORTH))
 ```
-And its usage. Let's assume the enum definition, the variable current-direction is declared, and the function is declared in `enum-example.di`
-```
-$ discr ./enum-example.di ./print.di
->(print-out (turn-clockwise current-direction))
-'EAST
->(print-out myparam)
-'EAST
-```
-Notice how in this example `myparam` was assigned the value, and then `myparam` was an implicit return to the caller.
-Similarly, you could have the function declared as so,
-```
-(@f look-right 'Direction (myparam)
-  (%match myparam
-    'NORTH 'EAST 
-    'SOUTH 'WEST
-    'EAST 'SOUTH
-    'WEST 'NORTH))
-```
-This will not change the value of myparam.
-Its usage.
-```
-$ discr ./enum-example.di ./print.di
->(print-out (look-right current-direction))
-'EAST
->(print-out myparam)
-'NORTH
-```
-
-**Runtime Behavior**
-
-In the first example we declared a variable with the `'NORTH` value, If there were two different enums that had a `'NORTH` values in each, it would not be possible to know which one it was. The runner will evaluate to whichever definition the parser found first. It is best to be explicit `'Direction'NORTH`.
-
-Not every path could be provided to the `%match` builtin. In the [Language Specification Strong and Static](#language-specification-strong-and-static) you will see how this can be enforced to ensure pattern matching must complete every outcome. The runtime behavior is quite clear. If a pattern is not matched on, the return on match, will be `nil`.
-
----
-#### Types
-You may use either of these declarations
-```
-@t
-@type
-```
-Here is how to define a type
-```
-(@t computer 
-  :mouse ""
-  :monitors ()
-  :speakers ())
-```
-Type definitions stray from normal list syntax a little bit. In the above example, `:mouse` is a string much like how we use the `@l mystring ""` syntax. `:monitors` and `:speakers` evaluate to `nil`
-Declaring a variable with a type is as easy as.
-```
-(@l mycomputer1 'computer)
-(@l mycomputer2 'computer (:mouse "Gaming Mouse"))
-(@l mycomputer3 'computer ("Gaming Mouse" ["Default 1" "Default 2"]))
-```
-You can use a type with its name. Let's create a file called `computer.di`
-```
-(@t computer 
-  :mouse ""
-  :monitors ()
-  :speakers ())
-
-(@f add-monitor (comp monitor)
- (comp :monitors (add (comp :monitors) monitor)))
-```
-
-In a moment we will talk about the `print-out` functions.
-```
-$ discd repl ./computer.di ./print.di
-> (@l mycomp 'computer)
-> (print-out mycomp)
-('computer 
-  :mouse ""
-  :monitors ()
-  :speakers ())
-> (print-out (add-monitor mycomp "Generic 720p Monitor"))
-('computer
-  :mouse ""
-  :monitors ["Generic 720p Monitor"])
-  :speakers "")
-```
-In this example the add-monitor function returns the same instance of the computer to the caller `print-out` which pretty prints the type to stdout.
-And finally, it is possible to provide `constructor args`
-```
-(@t computer 'string 'list (mouse monitors)
-  :mouse mouse
-  :monitors monitors)
-```
-This says that any instance of computer could be provided initial values, and to where they should be assigned.
-
-**Runtime Behavior**
-
-What were to happen if we were to pass some new type `'vehicle` to `add-monitor`? The runtime behavior here, is much like javascript, except there is no prototypal inheritance, either the property exists on the object or it does not. so lets say we have a new `'vehicle` type, and is defined as so in `vehicle.di`.
-```
-(@t vehicle
-  :wheels [])
-
-(@l myvehicle 'vehicle)
-```
-```
-$ discd repl ./vehicle.di ./computer.di ./print.di
-> (print-out (add-monitor myvehicle "Dashboard LED Screen"))
-('vehicle 
-  :wheels []
-  :monitors ["Dashboard LED Screen"])
-```
-Another behavior that needs to be considered is of unknown type or even a number, how would this work?
-```
-$ discd repl ./vehicle.di ./computer.di ./print.di
-> (@l mything)
-> (@l mynum 22)
-> (print-out (add-monitor mything "what?"))
-('unknown
-  :monitors ["what?"])
-> (print-out (add-monitor mynum "this is odd"))
-('unknown
-  :monitors [])
-```
+See [functions](#functions), and [match](#match)
 
 ---
 #### Interfaces and Generics
@@ -911,10 +737,10 @@ $ discd repl ./myadd.di
 > (add 33 9)
 42
 ```
-Note: You can read the [Builtin](#builtin) section to understand why `+` was prepended with `%`.
+Note: You can read the [Builtins](#builtins) section to understand why `+` was prepended with `%`.
 
 ---
-#### Builtin
+#### Builtins
 
 Some functions are built into the language. Here is a list of all.
 ```
