@@ -119,7 +119,7 @@ Type definition.
 ```
 `:mouse` is a [property](#properties).
 
-Types can also have `constructor arguments`.
+Types can also have constructor arguments.
 ```
 (@t computer (mouseName)
   :mouse mouseName)
@@ -339,7 +339,9 @@ You declare an interface with the declaration `@` [identifer](#identifiers)
   :debug param1)
 ```
 The first interface can take any type in the `constructor args` and ensures that they get assigned to the `:debug` property.
-The second interface specifies that this interface is strictly for `strings` in `:debug` property. See [Valid Syntax](#valid-syntax) for a complete reference on valid interface syntax. 
+The second interface specifies that this interface is strictly for `strings` in `:debug` property. 
+
+See [Valid Syntax](#valid-syntax) for a complete reference on valid interface syntax. 
 
 `constructor args` is used loosely here, as there is never going to be an instance of the interface.
 Either of these declarations are valid:
@@ -347,7 +349,7 @@ Either of these declarations are valid:
 @i
 @interface
 ```
-In order to add an interface to a type, you must use the hook `,` [identifier](#identifiers) for specifying the contract must be implemented.
+In order for a type to implement the interface, you must use the hook `,` [identifier](#identifiers).
 ```
 (@t computer ,debug-it
   :mouse ""
@@ -355,111 +357,78 @@ In order to add an interface to a type, you must use the hook `,` [identifier](#
 ```
 The `computer` type must implement the `:debug` property. 
 
-Now, you can make a generic function which will take the interface prefaced with the hook `,` identifier.
+Generics are special [functions](#functions) which take interfaces and parameters in its constructor arguments. The interfaces do not need to be named.
+The properties on the contract can be used by name directly. 
 ```
 (@g print-out (,debug-it)
   (printf :debug))
 ```
-This generic function states that the first variable passed to `print-out` must implement the `debug-it` interface.
-You may use either of these declarations:
+The `print-out` function must use at least one `property` on the interface. See [Valid Syntax](#valid-syntax) for a complete reference on valid generics syntax.
+
+Either of these declarations are valid:
 ```
 @generic
 @g
 ```
-And finally, its usage.
-```
-$ discd repl ./computer.di ./print-out.di
-> (@l mycomp 'computer)
-> (print-out mycomp)
-It's a computer
-```
-These are a bit more complex, albeit powerful, so let's go over what is happening.
-
-First,
-we define an interface, you must declare any types it uses in its constructor.
-```
-(@i debug-it (o)
-  :debug o)
-```
-The above example requires any type, and will be referenced as `o`, and that type `o` is on the `:debug` property.
-```
-@t computer ,debug-it
-  :mouse ""
-  :debug "It's a computer")
-```
-The above is saying that in order to implement the `debug-it` interface, you must have a `property` called `:debug`. This example correctly implements the `debug-it` interface.
-
-```
-(@g print-out (,debug-it)
-  (printf :debug)) ; <-- :debug is just going to get replaced
-			  with "It's a computer".  
-```
-Instead of print-out receiving a string, or a list, we are saying, there will be a `property` called `:debug` you can just use whatever is evaluated in that.
-
-`printf` is one of the earliest functions in computing history. It is extremely complex internally, and lives on your system in some way or another. On linux or mac, you can enter this into your shell.
-```
-$ printf "hello\n"
-hello
-$
-```
-`printf` can also take in multiple arguments and format the input string with some evaluation.
-```
-$ printf "hello %s\n" "world"
-hello world
-$ 
-```
-So `printf` can take a list of strings. We can edit `debug-it` interface to represent this.
-```
-(@i debug-it 'string 'string (format input)  
-  :debug 'list [format input])
-
-(@g print-out (,debug-it)
-  (printf :debug))
-
-(@t computer ,debug-it
-  :mouse ""
-  :debug 'list ["mouse key is %s\n" :mouse])
-```
-types are special in that they have access to their `properties` anywhere within the declaration scope. This is why the list in `:debug` can access `:mouse`
-
-`printf` is robust. How do we ensure that we use printf as it is intended? Since you are in the `dynamic` and `weak` tutorial, we are going to let `printf` do the heavy lifting. Sure, you might accidentally use printf incorrectly, pass it 20 arguments? 30 arguments? Will it break? See the `strong` and `static` tutorial to learn about how to do all this safely.
-
-Here is the full look at generics and interfaces in action.
-```
-(@i debug-it (o)
-  :debug o)
-
-(@g print-out (,debug-it)
-  (printf :debug))
-
-(@t computer (,debug-it)
-  :mouse ""
-  :debug "It's a computer")
-
-(@t car ,debug-it
-  :make ""
-  :model ""
-  :debug ["car => :make %s and :model %s\n" :make :model])
-```
-printf is doing a bit of work here, as we are passing it a string in one instance, and a list in another.
- 
-Here is the usage. `full-example` contains all the code from the previous code block.
-```
-$ discd repl ./full-example.di
-> (@l mycomp 'computer)
-> (print-out mycomp
-It's a computer
-> (@l mycar ('car :make "Ford" :model "RS200"))
-> (print-out mycar)
-car => :make Ford and :model RS200
->
-```
-
----
 #### Yielded Types
+**WIP**
 
+```
+(@e Directions 
+  'CENTER
+  'EAST
+  'WEST)
+
+(@e TimesOfDay
+  'NIGHT
+  'AFTERNOON
+  'EVENING)
+
+(@t panel
+  :direction 'Directions'EAST)
+```
+```
+(@y rotate-solar-panel 'EAST 'AFTERNOON (solarPanel sunLocation)
+  (set-angle solarPanel 0))
+(@y rotate-solar-panel 'WEST 'NIGHT (solarPanel sunLocation)
+  (set-angle solarPanel 45)
+```
+Every combination for `rotate-solar-panel` must be defined.
+so then the usage might look something like this. `@d` for dependent types.
+```
+(@d update-panels 'rotate-solar-panel 'Direction 'SunLocation (panel sunlocation)
+  (rotate-solar-panel panel sunlocation))
+```
+and it's potential usage
+```
+(@l mypanel 'panel)
+(%while (%= 1 1) 
+  (update-panels mypanel (get-sun-location))
+```
 ---
 #### Assembly
+
+The assembly syntax follows the new `asm!` syntax for rust as closely as possible. Writing assembly like this is probably one of the most pleasant experiences in writing assembly.
+Here is an example.
+
+** WIP **
+
+// the implication of taking a type, and using some sort of reflection around 'reg and inout, and the fact you need to mark the command with #asm indicates this entire scoped block is unrelated to the rest of the language.
+
+// might as well just use (reg), 'reg, or reg?
+```
+(add2 #asm (x)
+  (%addi x x num)
+  (%inout ('reg) x) ** wip** <--- what does it mean to take a 'type? is this the instantiation of this type like the rest of the language?
+  (%c num 2))
+```
+First, the function must be marked with the preprocessor command `#asm`. Next we can use the builtins that are made for this specific arch.
+
+`%addi` takes a `dst`, `src`, and `imm`.
+
+`%inout` tells the compiler to use any register it chooses with ('reg), and then x is both an `in` and `out`. The compiler will successfully deduce that it can leave x in the same register, and it will be clobbered. The compiler keeps a list of all registers which are currently in use. if the `%out` or `%inout` is not specified for the variable/register, the compiler will put which ever register contained the variable x, back in the available pool to draw from.
+
+With proper usage of the `%in %out %inout %inlateout %lateout` You are able to squeeze out the best performance possible.
 
 ---
 #### Types List
