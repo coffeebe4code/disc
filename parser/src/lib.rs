@@ -1,3 +1,5 @@
+#![allow(unused_parens)]
+
 #[derive(Debug)]
 pub struct ASTError(String);
 
@@ -20,19 +22,53 @@ pub enum TOKEN {
     Words(String),
     Interface(String),
 }
+
+pub fn seek_past_newline(data: &str) -> usize {
+    let mut index = 0;
+    let mut found = false;
+    for c in data.chars() {
+        match c {
+            ' ' => { },
+            '\n' => { found = true },
+            '\t' => { },
+            _ => { if(found == true) { break; } }
+        }
+        index += 1;
+    }
+    return index;
+}
+
+pub fn seek_past_whitespace(data: &str) -> usize {
+    let mut index = 0;
+    let mut found = false;
+    for c in data.chars() {
+        match c {
+            ' ' => { found = true},
+            '\n' => { found = true },
+            '\t' => { found = true },
+            _ => { if(found == true) { break; } }
+        }
+        index+=1;
+    }
+    return index;
+}
+
 pub fn tokenize(data: &str) -> Result<(TOKEN, usize), ASTError> {
     let curr = data.chars().next().unwrap(); 
     match curr {
-        ';' => { Ok((TOKEN::Comment, 1)) }, // get the length until the \n 
-        ':' => { Ok((TOKEN::Property("prop".to_string()), 4)) },
-        ',' => { Ok((TOKEN::Interface("int".to_string()), 3)) },
+        ';' => { Ok((TOKEN::Comment, seek_past_newline(data))) }, // get the length until the \n 
+        ':' => { let skip = seek_past_whitespace(&data[1..]); Ok((TOKEN::Property(data[1..skip].to_string()), skip)) },
+        ',' => { let skip = seek_past_whitespace(&data[1..]); Ok((TOKEN::Interface(data[1..skip].to_string()), skip)) },
         ')' => { Ok((TOKEN::CParen, 1)) },
         '(' => { Ok((TOKEN::OParen, 1)) },
-        '\'' => { Ok((TOKEN::Type("type".to_string()), 4)) },
+        '\'' => { let skip = seek_past_whitespace(&data[1..]); Ok((TOKEN::Type("type".to_string()), 4)) },
         '"' => { Ok((TOKEN::Quoted("quoted".to_string()), 6)) },
-        '@' => { Ok((TOKEN::Declaration("dec".to_string()), 3)) },
-        '%' => { Ok((TOKEN::Builtin("built".to_string()), 5)) },
-        '#' => { Ok((TOKEN::Pre("prev".to_string()), 4)) },
+        '@' => { let skip = seek_past_whitespace(&data[1..]); Ok((TOKEN::Declaration("dec".to_string()), 3)) },
+        '%' => { let skip = seek_past_whitespace(&data[1..]); Ok((TOKEN::Builtin("built".to_string()), 5)) },
+        '#' => { let skip = seek_past_whitespace(&data[1..]); Ok((TOKEN::Pre("prev".to_string()), 4)) },
+        '\t' => { Ok((TOKEN::Comment, seek_past_whitespace(&data[1..]))) },
+        '\n' => { Ok((TOKEN::Comment, seek_past_whitespace(&data[1..]))) },
+        ' ' => { Ok((TOKEN::Comment, seek_past_whitespace(&data[1..]))) },
         _ => { 
             if(curr.is_alphabetic()) {
                 return Ok((TOKEN::Words("words".to_string()),5))
@@ -58,10 +94,10 @@ pub fn parse_from_str(source: &str, column: u32, line: u32) -> Result<Vec<AST>,A
 
 #[cfg(test)]
 mod tests {
-    use crate::{ parse_from_str, AST};
+    use crate::{ parse_from_str, tokenize, AST};
     #[test]
-    fn parses() {
-        assert_eq!(parse_from_str("/",0,0).unwrap_err().0, "invalid token: /".to_string());
-        assert_eq!(parse_from_str("()",0,0).unwrap().first().unwrap(), 0);
+    fn tokenizes() {
+        assert_eq!(tokenize("; hello\n  \t").unwrap().1, 11);
+        assert_eq!(tokenize(":prop ()").unwrap().1, 5);
     }
 }
