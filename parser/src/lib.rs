@@ -40,7 +40,7 @@ impl TOKEN {
     }
 }
 
-pub fn seek_past_newline(data: &str) -> usize {
+fn seek_past_newline(data: &str) -> usize {
     let mut index = 0;
     let mut found = false;
     for c in data.chars() {
@@ -59,80 +59,111 @@ pub fn seek_past_newline(data: &str) -> usize {
     return index;
 }
 
-pub fn parse_number(data: &str, prev: &TOKEN) -> Result<(TOKEN, usize), ASTError> {
+fn parse_number(data: &str) -> Result<(TOKEN, usize), ASTError> {
     let mut index = 0;
     let curr = data.chars().next().unwrap();
     Ok((TOKEN::Number(5), 1))
 }
 
-//pub fn parse_word(data:&str) -> Renult<(TOKEN, usize), ASTError> {
-//    let mut index = 0;
-//    let mut found_illicit = false;
-//    for c in data.chars() {
-//        match c {
-//            ' ' => { return Ok((TOKEN::Words(data[0..index].to_string()), index)) },
-//            '*' => { return ASTError(format!("elicit string character found {}", c)) }
-//
-//        }
-//}
-
-pub fn ensure_word_to_whitespace(data: &str) -> Result<usize, ASTError> {
+fn parse_word(data: &str) -> Result<(TOKEN, usize), ASTError> {
+    let mut index = 0;
+    for c in data.chars() {
+        match c {
+            c if c.is_alphabetic() => index += 1,
+            c if c.is_digit(10) => index += 1,
+            ' ' => {
+                break;
+            }
+            '-' => index += 1,
+            '_' => index += 1,
+            _ => return Err(ASTError(format!("error illicit character found {}", c))),
+        }
+    }
+    return Ok((TOKEN::Words(data[0..index].to_string()), index));
+}
+// ha -> 0,
+fn ensure_word_to_end(data: &str) -> Result<usize, ASTError> {
     let mut index = 0;
     let mut found = false;
     for c in data.chars() {
         match c {
-            ' ' => found = true,
-            '\n' => found = true,
-            '\t' => found = true,
-            ')' => found = true,
+            ' ' => {
+                found = true
+            }
+            '\n' => {
+                found = true
+            }
+            '\t' => {
+                found = true
+            }
+            ')' => {
+                found = true
+            }
+            c if c.is_alphabetic() => {
+                index += 1;
+            }
+            c if c.is_digit(10) => {
+                index += 1;
+            }
+            '-' => {
+                index += 1;
+            }
+            '_' => index += 1,
             _ => {
-                if (found == true) {
-                    break;
-                }
-
-                if (c.is_alphabetic()) {
-                } else if (c.is_digit(10)) {
-                } else {
-                    return Err((ASTError("errorbreak".to_string())));
-                }
+                return Err((ASTError("errorbreak".to_string())));
             }
         }
-        index += 1;
+        if (found) {
+            break;
+        }
     }
     return Ok(index);
 }
 
-pub fn seek_past_whitespace(data: &str) -> usize {
+fn seek_past_whitespace(data: &str) -> usize {
     let mut index = 0;
     let mut found = false;
     for c in data.chars() {
         match c {
-            ' ' => found = true,
-            '\n' => found = true,
-            '\t' => found = true,
+            ' ' => {
+                index -= 1;
+                found = true
+            }
+            '\n' => {
+                index -= 1;
+                found = true
+            }
+            '\t' => {
+                index -= 1;
+                found = true
+            }
             _ => {
                 if (found == true) {
                     break;
                 }
+                index += 1;
             }
         }
-        index += 1;
     }
     return index;
 }
 
-pub fn make_ident_or_error(data: &str, ident: u32) -> Result<(TOKEN, usize), ASTError> {
-    let skip = ensure_word_to_whitespace(&data[0..]);
+fn make_ident_or_error(data: &str, ident: u32) -> Result<(TOKEN, usize), ASTError> {
+    let skip = ensure_word_to_end(&data[0..]);
     match skip {
         Ok(val) => {
             if (val == 0) {
                 return Err(ASTError("expected".to_string()));
             }
-            return Ok((TOKEN::from_u32(ident, &data[0..val - 1]), val - 1));
+            return Ok((TOKEN::from_u32(ident, &data[0..val]), val));
         }
         Err(val) => return Err(val),
     }
 }
+
+//pub fn parse_to_ast(data: &str, pos: u32, line: u32) -> (Vec<AST>, Vec<ASTError) {
+//
+//}
 
 pub fn tokenize(data: &str) -> Result<(TOKEN, usize), ASTError> {
     let curr = data.chars().next().unwrap();
@@ -153,9 +184,9 @@ pub fn tokenize(data: &str) -> Result<(TOKEN, usize), ASTError> {
         ' ' => Ok((TOKEN::Comment, seek_past_whitespace(&data[1..]))),
         _ => {
             if (curr.is_alphabetic()) {
-                return Ok((TOKEN::Words("words".to_string()), 5));
+                return parse_word(&data[..]);
             } else if (curr.is_digit(10)) {
-                return Ok((TOKEN::Number(5), 1));
+                return parse_number(&data[..]);
             }
             Err(ASTError("invalid token".to_string()))
         }
@@ -185,6 +216,7 @@ mod tests {
             tokenize("'string \"hello\"").unwrap().0,
             TOKEN::Type("string".to_string())
         );
+        assert_eq!(tokenize("'string").unwrap().1, 6);
         assert_eq!(tokenize("'").unwrap_err().0, "expected".to_string());
     }
     #[test]
@@ -195,31 +227,28 @@ mod tests {
     #[test]
     fn tokenizes_builtins() {
         assert_eq!(tokenize("%ffi )").unwrap().1, 3);
-        assert_eq!(tokenize("%main ").unwrap().0, TOKEN::Builtin("main".to_string()));
+        assert_eq!(
+            tokenize("%main ").unwrap().0,
+            TOKEN::Builtin("main".to_string())
+        );
     }
     #[test]
-    fn tokenizes_arrays() {
-        
-    }
+    fn tokenizes_arrays() {}
     #[test]
-    fn tokenizes_strings() {
+    fn tokenizes_strings() {}
 
-    }
-
     #[test]
-    fn tokenizes_numbers() {
-
-    }
+    fn tokenizes_numbers() {}
     #[test]
-    fn tokenizes_pres() {
-        
-    }
+    fn tokenizes_pres() {}
     #[test]
     fn tokenizes_words() {
-
+        assert_eq!(tokenize("word").unwrap().1, 4);
+        assert_eq!(
+            tokenize("works ()").unwrap().0,
+            TOKEN::Words("works".to_string())
+        );
     }
     #[test]
-    fn tokenizes_interfaces() {
-
-    }
+    fn tokenizes_interfaces() {}
 }
