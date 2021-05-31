@@ -21,7 +21,7 @@ pub enum TOKEN {
     Comment,
     Quoted(String),
     Float(f64),
-    Array(String),
+    Array(Vec<String>),
     Number(u64),
     Words(String),
 }
@@ -149,8 +149,92 @@ fn make_ident_or_error(data: &str, ident: u32) -> Result<(TOKEN, usize), ASTErro
     }
 }
 
-//pub fn parse_quoted(data: &str) -> Result<(TOKEN, usize), ASTError> {}
+pub fn parse_quoted(data: &str) -> Result<(TOKEN, usize), ASTError> {
+    let mut escape = false;
+    let mut closed = false;
+    let mut new_data: String = "".to_string();
+    let mut index = 0;
+    for c in data.chars() {
+        match c {
+            '\\' => {
+                escape = true;
+                index += 1
+            }
+            '"' => {
+                if (!escape) {
+                    closed = true;
+                    index += 1;
+                    break;
+                }
+                new_data.push('\"');
+                index += 1;
+            }
+            _ => {
+                if (escape) {
+                    match c {
+                        'n' => {
+                            new_data.push('\n');
+                        }
+                        't' => {
+                            new_data.push('\t');
+                        }
+                        '\\' => {
+                            new_data.push('\\');
+                        }
+                        'r' => {
+                            new_data.push('\r');
+                        }
+                        '0' => {
+                            new_data.push('\0');
+                        }
+                        'x' => {
+                            new_data.push('\x10');
+                        }
+                        'u' => {
+                            new_data.push('\u{0010}');
+                        }
+                        _ => {
+                            return Err(ASTError(format!("invalid escape character {}", c)));
+                        }
+                    }
+                } else {
+                    new_data.push(c);
+                }
+                index += 1;
+            }
+        }
+    }
+    if (!closed) {
+        return Err(ASTError("expected closing \"".to_string()));
+    }
+    println!("{}", new_data);
+    return Ok((TOKEN::Quoted(new_data), index - 1));
+}
 
+pub fn parse_array(data: &str) -> Result<(TOKEN, usize), ASTError> {
+    let mut escape = false;
+    let mut vec = vec![];
+    let mut closed = false;
+    let mut new_data: String = "".to_string();
+    let mut index = 0;
+    for c in data.chars() {
+        match c {
+            ']' => {
+                closed = true;
+                index += 1;
+                break;
+            }
+            '"' => {
+                let quote_or = parse_quoted(&data[index..]);
+            }
+            c if c.is_digit(10) => {}
+            c if c.is_alphabetic() => {}
+            _ => {}
+        }
+    }
+    if (!closed) {}
+    return Ok((TOKEN::Array(vec), index - 1));
+}
 pub fn tokenize(data: &str) -> Result<(TOKEN, usize), ASTError> {
     let curr = data.chars().next().unwrap();
     match curr {
@@ -160,11 +244,11 @@ pub fn tokenize(data: &str) -> Result<(TOKEN, usize), ASTError> {
         ')' => Ok((TOKEN::CParen, 1)),
         '(' => Ok((TOKEN::OParen, 1)),
         '\'' => make_ident_or_error(&data[1..], 0),
-        // '"' => parse_quoted(&data[1..]),
+        '"' => parse_quoted(&data[1..]),
         '@' => make_ident_or_error(&data[1..], 1),
         '%' => make_ident_or_error(&data[1..], 3),
         '#' => make_ident_or_error(&data[1..], 4),
-        '[' => Ok((TOKEN::Array("array".to_string()), 5)),
+        '[' => parse_array(&data[1..]),
         '\t' => Ok((TOKEN::Comment, seek_past_whitespace(&data[1..]))),
         '\n' => Ok((TOKEN::Comment, seek_past_whitespace(&data[1..]))),
         ' ' => Ok((TOKEN::Comment, seek_past_whitespace(&data[1..]))),
@@ -218,13 +302,31 @@ mod tests {
         );
     }
     #[test]
-    fn tokenizes_arrays() {}
+    fn tokenizes_arrays() {
+        assert_eq!(tokenize("[5 6 7 9]"))
+    }
     #[test]
-    fn tokenizes_strings() {}
+    fn tokenizes_strings() {
+        assert_eq!(tokenize("\"string\"").unwrap().1, 6);
+        assert_eq!(
+            tokenize("\"string\"").unwrap().0,
+            TOKEN::Quoted("string".to_string())
+        );
+        assert_eq!(
+            tokenize("\"string").unwrap_err().0,
+            "expected closing \"".to_string()
+        );
+    }
     #[test]
     fn tokenizes_numbers() {}
     #[test]
-    fn tokenizes_pres() {}
+    fn tokenizes_pres() {
+        assert_eq!(tokenize("#static").unwrap().1, 6);
+        assert_eq!(
+            tokenize("#inline ").unwrap().0,
+            TOKEN::Pre("inline".to_string())
+        );
+    }
     #[test]
     fn tokenizes_words() {
         assert_eq!(tokenize("word").unwrap().1, 4);
