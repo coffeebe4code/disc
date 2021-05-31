@@ -35,6 +35,7 @@ impl TOKEN {
             3 => TOKEN::Builtin(data.to_string()),
             4 => TOKEN::Pre(data.to_string()),
             5 => TOKEN::Interface(data.to_string()),
+            6 => TOKEN::Words(data.to_string()),
             _ => panic!("invalid TOKEN supplied"),
         }
     }
@@ -61,44 +62,31 @@ fn seek_past_newline(data: &str) -> usize {
 
 fn parse_number(data: &str) -> Result<(TOKEN, usize), ASTError> {
     let mut index = 0;
-    let curr = data.chars().next().unwrap();
+    let mut invalid = false;
+    for c in data.chars() {
+        match c {
+            ' ' => {}
+            '\n' => {}
+            '\t' => {}
+            'x' => {}
+            'b' => {}
+            'f' => {}
+            'l' => {}
+            _ => {}
+        }
+    }
     Ok((TOKEN::Number(5), 1))
 }
 
-fn parse_word(data: &str) -> Result<(TOKEN, usize), ASTError> {
-    let mut index = 0;
-    for c in data.chars() {
-        match c {
-            c if c.is_alphabetic() => index += 1,
-            c if c.is_digit(10) => index += 1,
-            ' ' => {
-                break;
-            }
-            '-' => index += 1,
-            '_' => index += 1,
-            _ => return Err(ASTError(format!("error illicit character found {}", c))),
-        }
-    }
-    return Ok((TOKEN::Words(data[0..index].to_string()), index));
-}
-// ha -> 0,
 fn ensure_word_to_end(data: &str) -> Result<usize, ASTError> {
     let mut index = 0;
     let mut found = false;
     for c in data.chars() {
         match c {
-            ' ' => {
-                found = true
-            }
-            '\n' => {
-                found = true
-            }
-            '\t' => {
-                found = true
-            }
-            ')' => {
-                found = true
-            }
+            ' ' => found = true,
+            '\n' => found = true,
+            '\t' => found = true,
+            ')' => found = true,
             c if c.is_alphabetic() => {
                 index += 1;
             }
@@ -110,7 +98,7 @@ fn ensure_word_to_end(data: &str) -> Result<usize, ASTError> {
             }
             '_' => index += 1,
             _ => {
-                return Err((ASTError("errorbreak".to_string())));
+                return Err((ASTError(format!("invalid character in word {}", c))));
             }
         }
         if (found) {
@@ -153,7 +141,7 @@ fn make_ident_or_error(data: &str, ident: u32) -> Result<(TOKEN, usize), ASTErro
     match skip {
         Ok(val) => {
             if (val == 0) {
-                return Err(ASTError("expected".to_string()));
+                return Err(ASTError("expected a word".to_string()));
             }
             return Ok((TOKEN::from_u32(ident, &data[0..val]), val));
         }
@@ -161,9 +149,7 @@ fn make_ident_or_error(data: &str, ident: u32) -> Result<(TOKEN, usize), ASTErro
     }
 }
 
-//pub fn parse_to_ast(data: &str, pos: u32, line: u32) -> (Vec<AST>, Vec<ASTError) {
-//
-//}
+//pub fn parse_quoted(data: &str) -> Result<(TOKEN, usize), ASTError> {}
 
 pub fn tokenize(data: &str) -> Result<(TOKEN, usize), ASTError> {
     let curr = data.chars().next().unwrap();
@@ -174,7 +160,7 @@ pub fn tokenize(data: &str) -> Result<(TOKEN, usize), ASTError> {
         ')' => Ok((TOKEN::CParen, 1)),
         '(' => Ok((TOKEN::OParen, 1)),
         '\'' => make_ident_or_error(&data[1..], 0),
-        '"' => Ok((TOKEN::Quoted("quoted".to_string()), 6)),
+        // '"' => parse_quoted(&data[1..]),
         '@' => make_ident_or_error(&data[1..], 1),
         '%' => make_ident_or_error(&data[1..], 3),
         '#' => make_ident_or_error(&data[1..], 4),
@@ -182,14 +168,9 @@ pub fn tokenize(data: &str) -> Result<(TOKEN, usize), ASTError> {
         '\t' => Ok((TOKEN::Comment, seek_past_whitespace(&data[1..]))),
         '\n' => Ok((TOKEN::Comment, seek_past_whitespace(&data[1..]))),
         ' ' => Ok((TOKEN::Comment, seek_past_whitespace(&data[1..]))),
-        _ => {
-            if (curr.is_alphabetic()) {
-                return parse_word(&data[..]);
-            } else if (curr.is_digit(10)) {
-                return parse_number(&data[..]);
-            }
-            Err(ASTError("invalid token".to_string()))
-        }
+        c if c.is_alphabetic() => make_ident_or_error(&data[..], 6),
+        c if c.is_digit(10) => parse_number(&data[..]),
+        _ => Err(ASTError(format!("invalid token: {}", curr))),
     }
 }
 
@@ -208,7 +189,11 @@ mod tests {
             tokenize(":prop ()").unwrap().0,
             TOKEN::Property("prop".to_string())
         );
-        assert_eq!(tokenize(":").unwrap_err().0, "expected".to_string());
+        assert_eq!(tokenize(":").unwrap_err().0, "expected a word".to_string());
+        assert_eq!(
+            tokenize(":prop)").unwrap().0,
+            TOKEN::Property("prop".to_string())
+        );
     }
     #[test]
     fn tokenizes_types() {
@@ -217,7 +202,7 @@ mod tests {
             TOKEN::Type("string".to_string())
         );
         assert_eq!(tokenize("'string").unwrap().1, 6);
-        assert_eq!(tokenize("'").unwrap_err().0, "expected".to_string());
+        assert_eq!(tokenize("'").unwrap_err().0, "expected a word".to_string());
     }
     #[test]
     fn tokenizes_scopes() {
@@ -236,7 +221,6 @@ mod tests {
     fn tokenizes_arrays() {}
     #[test]
     fn tokenizes_strings() {}
-
     #[test]
     fn tokenizes_numbers() {}
     #[test]
@@ -248,7 +232,17 @@ mod tests {
             tokenize("works ()").unwrap().0,
             TOKEN::Words("works".to_string())
         );
+        assert_eq!(
+            tokenize("works)").unwrap().0,
+            TOKEN::Words("works".to_string())
+        );
     }
     #[test]
-    fn tokenizes_interfaces() {}
+    fn tokenizes_interfaces() {
+        assert_eq!(
+            tokenize(",debug-it").unwrap().0,
+            TOKEN::Interface("debug-it".to_string())
+        );
+        assert_eq!(tokenize(",d").unwrap().1, 1);
+    }
 }
