@@ -1,4 +1,5 @@
 #![allow(unused_parens)]
+#![feature(iter_advance_by)]
 
 use core::panic;
 
@@ -21,7 +22,7 @@ pub enum TOKEN {
     Comment,
     Quoted(String),
     Float(f64),
-    Array(Vec<String>),
+    Array(Vec<TOKEN>),
     Number(u64),
     Words(String),
 }
@@ -61,8 +62,8 @@ fn seek_past_newline(data: &str) -> usize {
 }
 
 fn parse_number(data: &str) -> Result<(TOKEN, usize), ASTError> {
-    let mut index = 0;
-    let mut invalid = false;
+    let index = 0;
+    let invalid = false;
     for c in data.chars() {
         match c {
             ' ' => {}
@@ -207,34 +208,44 @@ pub fn parse_quoted(data: &str) -> Result<(TOKEN, usize), ASTError> {
     if (!closed) {
         return Err(ASTError("expected closing \"".to_string()));
     }
-    println!("{}", new_data);
     return Ok((TOKEN::Quoted(new_data), index - 1));
 }
 
 pub fn parse_array(data: &str) -> Result<(TOKEN, usize), ASTError> {
-    let mut escape = false;
-    let mut vec = vec![];
+    let mut vec: Vec<TOKEN> = vec![];
     let mut closed = false;
-    let mut new_data: String = "".to_string();
     let mut index = 0;
-    for c in data.chars() {
-        match c {
-            ']' => {
+    let mut iter = data.chars();
+    loop {
+        match iter.next() {
+            None => {
+                return Err(ASTError(format!("expected closing ]").to_string()));
+            }
+            Some(']') => {
                 closed = true;
                 index += 1;
                 break;
             }
-            '"' => {
+            Some('"') => {
                 let quote_or = parse_quoted(&data[index..]);
+                match quote_or {
+                    Err(val) => return Err(val),
+                    Ok(val) => {
+                        vec.push(val.0);
+                        iter.advance_by(val.1);
+                        index += val.1;
+                    }
+                }
             }
-            c if c.is_digit(10) => {}
-            c if c.is_alphabetic() => {}
-            _ => {}
+            Some(val) => {}
         }
     }
-    if (!closed) {}
+    if (!closed) {
+        return Err(ASTError(format!("expected closing ]").to_string()));
+    }
     return Ok((TOKEN::Array(vec), index - 1));
 }
+
 pub fn tokenize(data: &str) -> Result<(TOKEN, usize), ASTError> {
     let curr = data.chars().next().unwrap();
     match curr {
@@ -260,7 +271,7 @@ pub fn tokenize(data: &str) -> Result<(TOKEN, usize), ASTError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{tokenize, AST, TOKEN};
+    use crate::{tokenize, TOKEN};
     #[test]
     fn tokenizes_comments() {
         assert_eq!(tokenize("; hello\n  \t(").unwrap().1, 11);
@@ -303,7 +314,7 @@ mod tests {
     }
     #[test]
     fn tokenizes_arrays() {
-        assert_eq!(tokenize("[5 6 7 9]"))
+        // assert_eq!(tokenize("[5 6 7 9]"));
     }
     #[test]
     fn tokenizes_strings() {
