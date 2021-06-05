@@ -25,6 +25,7 @@ pub enum TOKEN {
     Array(Vec<TOKEN>),
     Number(u64),
     Words(String),
+    Char(char),
 }
 
 impl TOKEN {
@@ -88,6 +89,7 @@ fn ensure_word_to_end(data: &str) -> Result<usize, ASTError> {
             '\n' => found = true,
             '\t' => found = true,
             ')' => found = true,
+            ']' => found = true,
             c if c.is_alphabetic() => {
                 index += 1;
             }
@@ -142,7 +144,7 @@ fn make_ident_or_error(data: &str, ident: u32) -> Result<(TOKEN, usize), ASTErro
     match skip {
         Ok(val) => {
             if (val == 0) {
-                return Err(ASTError("expected a word".to_string()));
+                return Err(ASTError("expected a name".to_string()));
             }
             return Ok((TOKEN::from_u32(ident, &data[0..val]), val));
         }
@@ -221,6 +223,11 @@ pub fn parse_array(data: &str) -> Result<(TOKEN, usize), ASTError> {
             None => {
                 return Err(ASTError(format!("expected closing ]").to_string()));
             }
+            Some(' ') => {
+                index+= 1;
+            }
+            Some('\'') => {
+                let char_or = parse_char(&data[index..]);
             Some(']') => {
                 closed = true;
                 index += 1;
@@ -237,7 +244,31 @@ pub fn parse_array(data: &str) -> Result<(TOKEN, usize), ASTError> {
                     }
                 }
             }
-            Some(val) => {}
+            Some(val) => {
+                if (val.is_alphabetic()) {
+                    let word_or = make_ident_or_error(&data[index..], 6);
+                    match word_or {
+                        Err(v) => return Err(v),
+                        Ok(v) => {
+                            vec.push(v.0);
+                            iter.advance_by(v.1);
+                            index += v.1
+                        }
+                    }
+                } else if (val.is_digit(10)) {
+                    let num_or = parse_number(&data[index..]);
+                    match num_or {
+                        Err(v) => return Err(v),
+                        Ok(v) => {
+                            vec.push(v.0);
+                            iter.advance_by(v.1);
+                            index += v.1;
+                        }
+                    }
+                } else {
+                    return Err(ASTError(format!("invalid character {:?}", iter)));
+                }
+            }
         }
     }
     if (!closed) {
@@ -254,7 +285,7 @@ pub fn tokenize(data: &str) -> Result<(TOKEN, usize), ASTError> {
         ',' => make_ident_or_error(&data[1..], 5),
         ')' => Ok((TOKEN::CParen, 1)),
         '(' => Ok((TOKEN::OParen, 1)),
-        '\'' => make_ident_or_error(&data[1..], 0),
+        '$' => make_ident_or_error(&data[1..], 0),
         '"' => parse_quoted(&data[1..]),
         '@' => make_ident_or_error(&data[1..], 1),
         '%' => make_ident_or_error(&data[1..], 3),
@@ -284,7 +315,7 @@ mod tests {
             tokenize(":prop ()").unwrap().0,
             TOKEN::Property("prop".to_string())
         );
-        assert_eq!(tokenize(":").unwrap_err().0, "expected a word".to_string());
+        assert_eq!(tokenize(":").unwrap_err().0, "expected a name".to_string());
         assert_eq!(
             tokenize(":prop)").unwrap().0,
             TOKEN::Property("prop".to_string())
@@ -293,11 +324,11 @@ mod tests {
     #[test]
     fn tokenizes_types() {
         assert_eq!(
-            tokenize("'string \"hello\"").unwrap().0,
+            tokenize("$string \"hello\"").unwrap().0,
             TOKEN::Type("string".to_string())
         );
-        assert_eq!(tokenize("'string").unwrap().1, 6);
-        assert_eq!(tokenize("'").unwrap_err().0, "expected a word".to_string());
+        assert_eq!(tokenize("$string").unwrap().1, 6);
+        assert_eq!(tokenize("'").unwrap_err().0, "expected a name".to_string());
     }
     #[test]
     fn tokenizes_scopes() {
