@@ -1,8 +1,6 @@
 #![allow(unused_parens)]
 #![feature(iter_advance_by)]
 
-use core::panic;
-
 #[derive(Debug)]
 pub struct ASTError(String);
 
@@ -63,21 +61,42 @@ fn seek_past_newline(data: &str) -> usize {
 }
 
 fn parse_number(data: &str) -> Result<(TOKEN, usize), ASTError> {
-    let index = 0;
-    let invalid = false;
+    let mut index = 0;
+    let mut found = false;
     for c in data.chars() {
         match c {
-            ' ' => {}
-            '\n' => {}
-            '\t' => {}
+            ' ' => {
+                found = true;
+            }
+            '\n' => {
+                found = true;
+            }
+            '\t' => {
+                found = true;
+            }
+            ')' => {
+                found = true;
+            }
+            ']' => {
+                found = true;
+            }
             'x' => {}
             'b' => {}
             'f' => {}
             'l' => {}
-            _ => {}
+            c if c.is_digit(10) => {}
+            _ => {
+                return Err(ASTError(format!("invalid character found in number {}", c)));
+            }
+        }
+        index += 1;
+        if (found == true) {
+            break;
         }
     }
-    Ok((TOKEN::Number(5), 1))
+    let val = &data[..index-1];
+    println!("data {}", &val);
+    return Ok((TOKEN::Number(val.parse().unwrap()), index - 1));
 }
 
 fn ensure_word_to_end(data: &str) -> Result<usize, ASTError> {
@@ -155,7 +174,7 @@ fn make_ident_or_error(data: &str, ident: u32) -> Result<(TOKEN, usize), ASTErro
 pub fn parse_char(data: &str) -> Result<(TOKEN, usize), ASTError> {
     let mut escape = false;
     let mut closed = false;
-    let mut new_data: char;
+    let mut new_data: char = '\0';
     let mut index = 0;
     for c in data.chars() {
         match c {
@@ -176,42 +195,41 @@ pub fn parse_char(data: &str) -> Result<(TOKEN, usize), ASTError> {
                 if (escape) {
                     match c {
                         'n' => {
-                            new_data.push('\n');
+                            new_data = '\n';
                         }
                         't' => {
-                            new_data.push('\t');
+                            new_data = '\t';
                         }
                         '\\' => {
-                            new_data.push('\\');
+                            new_data = '\\';
                         }
                         'r' => {
-                            new_data.push('\r');
+                            new_data = '\r';
                         }
                         '0' => {
-                            new_data.push('\0');
+                            new_data = '\0';
                         }
                         'x' => {
-                            new_data.push('\x10');
+                            new_data = '\x10';
                         }
                         'u' => {
-                            new_data.push('\u{0010}');
+                            new_data = '\u{0010}';
                         }
                         _ => {
                             return Err(ASTError(format!("invalid escape character {}", c)));
                         }
                     }
                 } else {
-                    new_data.push(c);
+                    new_data = c;
                 }
                 index += 1;
             }
         }
     }
     if (!closed) {
-        return Err(ASTError("expected closing \"".to_string()));
+        return Err(ASTError("expected closing \'".to_string()));
     }
-    return Ok((TOKEN::Quoted(new_data), index - 1));
-    
+    return Ok((TOKEN::Char(new_data), index - 1));
 }
 
 pub fn parse_quoted(data: &str) -> Result<(TOKEN, usize), ASTError> {
@@ -286,10 +304,10 @@ pub fn parse_array(data: &str) -> Result<(TOKEN, usize), ASTError> {
                 return Err(ASTError(format!("expected closing ]").to_string()));
             }
             Some(' ') => {
-                index+= 1;
+                index += 1;
             }
             Some('\'') => {
-//               let char_or = parse_char(&data[index..]);
+                let char_or = parse_char(&data[index..]);
             }
             Some(']') => {
                 closed = true;
@@ -302,7 +320,7 @@ pub fn parse_array(data: &str) -> Result<(TOKEN, usize), ASTError> {
                     Err(val) => return Err(val),
                     Ok(val) => {
                         vec.push(val.0);
-                        iter.advance_by(val.1);
+                        iter.advance_by(val.1 - 1);
                         index += val.1;
                     }
                 }
@@ -314,8 +332,8 @@ pub fn parse_array(data: &str) -> Result<(TOKEN, usize), ASTError> {
                         Err(v) => return Err(v),
                         Ok(v) => {
                             vec.push(v.0);
-                            iter.advance_by(v.1);
-                            index += v.1
+                            iter.advance_by(v.1 - 1);
+                            index += v.1;
                         }
                     }
                 } else if (val.is_digit(10)) {
@@ -324,7 +342,7 @@ pub fn parse_array(data: &str) -> Result<(TOKEN, usize), ASTError> {
                         Err(v) => return Err(v),
                         Ok(v) => {
                             vec.push(v.0);
-                            iter.advance_by(v.1);
+                            iter.advance_by(v.1 - 1);
                             index += v.1;
                         }
                     }
@@ -392,7 +410,7 @@ mod tests {
             TOKEN::Type("string".to_string())
         );
         assert_eq!(tokenize("$string").unwrap().1, 6);
-        assert_eq!(tokenize("'").unwrap_err().0, "expected a name".to_string());
+        assert_eq!(tokenize("$").unwrap_err().0, "expected a name".to_string());
     }
     #[test]
     fn tokenizes_scopes() {
@@ -409,11 +427,23 @@ mod tests {
     }
     #[test]
     fn tokenizes_arrays() {
-        // assert_eq!(tokenize("[5 6 7 9]"));
+        assert_eq!(tokenize("[one two three]").unwrap().1, 13);
+        assert_eq!(
+            tokenize("[one two]").unwrap().0,
+            TOKEN::Array(vec![
+                TOKEN::Words("one".to_string()),
+                TOKEN::Words("two".to_string())
+            ])
+        );
+    }
+    #[test]
+    fn tokenizes_chars() {
+        assert_eq!(tokenize("'\n'").unwrap().1, 1);
+        assert_eq!(tokenize("'\n'").unwrap().0, TOKEN::Char('\n'));
     }
     #[test]
     fn tokenizes_strings() {
-        assert_eq!(tokenize("\"string\"").unwrap().1, 6);
+        assert_eq!(tokenize("\"string\")").unwrap().1, 6);
         assert_eq!(
             tokenize("\"string\"").unwrap().0,
             TOKEN::Quoted("string".to_string())
@@ -424,7 +454,10 @@ mod tests {
         );
     }
     #[test]
-    fn tokenizes_numbers() {}
+    fn tokenizes_numbers() {
+        assert_eq!(tokenize("5000)").unwrap().1, 4);
+        assert_eq!(tokenize("5000)").unwrap().0, TOKEN::Number(5000));
+    }
     #[test]
     fn tokenizes_pres() {
         assert_eq!(tokenize("#static").unwrap().1, 6);
@@ -452,5 +485,10 @@ mod tests {
             TOKEN::Interface("debug-it".to_string())
         );
         assert_eq!(tokenize(",d").unwrap().1, 1);
+    }
+
+    #[test]
+    fn full_ast_build() {
+        let program = "(%main (argc, argv)\n\t  (add 40 2))";
     }
 }
