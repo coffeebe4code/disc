@@ -152,6 +152,68 @@ fn make_ident_or_error(data: &str, ident: u32) -> Result<(TOKEN, usize), ASTErro
     }
 }
 
+pub fn parse_char(data: &str) -> Result<(TOKEN, usize), ASTError> {
+    let mut escape = false;
+    let mut closed = false;
+    let mut new_data: char;
+    let mut index = 0;
+    for c in data.chars() {
+        match c {
+            '\\' => {
+                escape = true;
+                index += 1
+            }
+            '\'' => {
+                if (!escape) {
+                    closed = true;
+                    index += 1;
+                    break;
+                }
+                new_data = '\'';
+                index += 1;
+            }
+            _ => {
+                if (escape) {
+                    match c {
+                        'n' => {
+                            new_data.push('\n');
+                        }
+                        't' => {
+                            new_data.push('\t');
+                        }
+                        '\\' => {
+                            new_data.push('\\');
+                        }
+                        'r' => {
+                            new_data.push('\r');
+                        }
+                        '0' => {
+                            new_data.push('\0');
+                        }
+                        'x' => {
+                            new_data.push('\x10');
+                        }
+                        'u' => {
+                            new_data.push('\u{0010}');
+                        }
+                        _ => {
+                            return Err(ASTError(format!("invalid escape character {}", c)));
+                        }
+                    }
+                } else {
+                    new_data.push(c);
+                }
+                index += 1;
+            }
+        }
+    }
+    if (!closed) {
+        return Err(ASTError("expected closing \"".to_string()));
+    }
+    return Ok((TOKEN::Quoted(new_data), index - 1));
+    
+}
+
 pub fn parse_quoted(data: &str) -> Result<(TOKEN, usize), ASTError> {
     let mut escape = false;
     let mut closed = false;
@@ -227,7 +289,8 @@ pub fn parse_array(data: &str) -> Result<(TOKEN, usize), ASTError> {
                 index+= 1;
             }
             Some('\'') => {
-                let char_or = parse_char(&data[index..]);
+//               let char_or = parse_char(&data[index..]);
+            }
             Some(']') => {
                 closed = true;
                 index += 1;
@@ -291,6 +354,7 @@ pub fn tokenize(data: &str) -> Result<(TOKEN, usize), ASTError> {
         '%' => make_ident_or_error(&data[1..], 3),
         '#' => make_ident_or_error(&data[1..], 4),
         '[' => parse_array(&data[1..]),
+        '\'' => parse_char(&data[1..]),
         '\t' => Ok((TOKEN::Comment, seek_past_whitespace(&data[1..]))),
         '\n' => Ok((TOKEN::Comment, seek_past_whitespace(&data[1..]))),
         ' ' => Ok((TOKEN::Comment, seek_past_whitespace(&data[1..]))),
