@@ -11,4 +11,5 @@ members = [
 	"discr",
 	"discd",
 	"bench"
+  "backend"
 ]
