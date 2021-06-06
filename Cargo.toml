@@ -1,0 +1,15 @@
+[workspace]
+members = [
+	"parser",
+	"project",
+	"formatter",
+	"minifier",
+	"compiler",
+	"runner",
+	"repl",
+	"arch",
+	"discr",
+	"discd",
+	"bench",
+  "backend"
+]
